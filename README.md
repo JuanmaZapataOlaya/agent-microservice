@@ -20,6 +20,167 @@ La configuración base usa `text-embedding-004` mediante Portkey, vector de 768 
 
 El prompt marca documentos como datos no confiables y el resultado se valida con Pydantic contra una allowlist. Las acciones son intenciones para Vue, nunca tools de backend.
 
+## Pruebas locales paso a paso
+
+### 1. Requisitos
+
+- Python 3.11 o superior, o Docker Desktop.
+- Un proyecto Supabase con `pgvector` disponible.
+- Una API key de Portkey y un modelo configurado en Portkey.
+- PowerShell en Windows.
+
+### 2. Configurar variables de entorno
+
+Desde la raíz del proyecto:
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+Completar como mínimo:
+
+```env
+BASE_URL=https://api.portkey.ai/v1
+PORTKEY_API_KEY=tu_api_key_de_portkey
+PORTKEY_MODEL=@dsvertex/gemini-3.5-flash-lite
+EMBEDDING_MODEL=text-embedding-004
+SUPABASE_URL=https://tu-proyecto.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+EDGE_SHARED_SECRET=un_secreto_largo_para_pruebas
+INGEST_API_KEY=otra_clave_larga_para_pruebas
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` y ambas claves internas son sólo para el backend. No las expongas en Vue, en el navegador ni en un repositorio.
+
+### 3. Preparar Supabase
+
+En Supabase abre **SQL Editor**, pega el contenido de `supabase/schema.sql` y ejecútalo. Esto crea las tablas de sesiones, mensajes y conocimiento, el índice vectorial, la función de búsqueda y la limpieza TTL.
+
+Comprueba que la dimensión del embedding sea compatible con el SQL:
+
+```sql
+select vector_dims(embedding)
+from knowledge_chunks
+limit 1;
+```
+
+El proyecto está configurado para embeddings de 768 dimensiones. Si el modelo de embeddings seleccionado devuelve otra dimensión, hay que cambiar `vector(768)` y la función SQL antes de ingerir documentos.
+
+### 4. Ejecutar el agente
+
+#### Opción A: Docker
+
+```powershell
+docker compose up --build
+```
+
+#### Opción B: Python
+
+```powershell
+python -m pip install -e .
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+En otra terminal, comprobar el servicio:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8000/health
+```
+
+Respuesta esperada:
+
+```json
+{"status":"ok"}
+```
+
+### 5. Ingerir un documento Markdown
+
+Crea un archivo de prueba:
+
+```powershell
+New-Item -ItemType Directory -Force .\knowledge | Out-Null
+@'
+# Hoteles para mascotas
+
+El hotel Patitas Felices acepta perros y gatos con reserva previa.
+El horario de atención es de lunes a sábado.
+'@ | Set-Content -Encoding utf8 .\knowledge\hoteles.md
+```
+
+Envía el documento directamente al agente local:
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/ingest" `
+  -H "x-ingest-key: otra_clave_larga_para_pruebas" `
+  -F "file=@knowledge\hoteles.md;type=text/markdown"
+```
+
+La respuesta debe indicar el nombre del documento y el número de chunks creados:
+
+```json
+{"document_name":"hoteles.md","chunks":1}
+```
+
+La ingesta elimina primero los chunks anteriores con el mismo nombre, por lo que repetir la prueba es idempotente a nivel de documento.
+
+### 6. Crear una sesión
+
+En pruebas directas contra FastAPI se usa un `user_id` de prueba. La Edge Function sustituye ese valor por el usuario autenticado de Supabase.
+
+```powershell
+$headers = @{
+  "Content-Type" = "application/json"
+  "x-edge-secret" = "un_secreto_largo_para_pruebas"
+}
+$session = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/session/start" `
+  -Headers $headers `
+  -Body '{"user_id":"local-test-user"}'
+$session
+$sessionId = $session.session_id
+```
+
+### 7. Enviar una pregunta RAG
+
+```powershell
+$body = @{
+  session_id = $sessionId
+  message = "¿Qué hoteles aceptan mascotas?"
+} | ConvertTo-Json
+
+$answer = Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/chat" `
+  -Headers $headers `
+  -Body $body
+$answer | ConvertTo-Json -Depth 10
+```
+
+La respuesta tiene siempre esta forma:
+
+```json
+{
+  "session_id": "uuid",
+  "message": "El hotel Patitas Felices acepta perros y gatos...",
+  "action": null,
+  "payload": {},
+  "correlation_id": "uuid"
+}
+```
+
+Para cerrar la sesión:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri "http://127.0.0.1:8000/session/end?session_id=$sessionId" `
+  -Headers @{"x-edge-secret"="un_secreto_largo_para_pruebas"}
+```
+
+Estas llamadas directas son únicamente para desarrollo. En producción Vue debe invocar la Edge Function, que valida el JWT y oculta los headers internos.
+
 ## Configuración y despliegue
 
 ```powershell
