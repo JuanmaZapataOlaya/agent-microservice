@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: findmypet-agent
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORTKEY_API_KEY
+        sync: false
+      - key: PORTKEY_MODEL
+        value: "@google/gemini-3.5-flash-lite"
+      - key: EMBEDDING_MODEL
+        value: text-embedding-004
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: EDGE_SHARED_SECRET
+        sync: false
+      - key: INGEST_API_KEY
+        sync: false
+      - key: SESSION_TTL_MINUTES
+        value: "60"
+      - key: TOP_K_RESULTS
+        value: "5"
+      - key: SIMILARITY_THRESHOLD
+        value: "0.72"
