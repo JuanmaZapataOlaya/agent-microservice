@@ -18,21 +18,6 @@ Vue -> Edge Function (JWT + validación) -> FastAPI
 
 La configuración base usa `text-embedding-004` mediante Portkey, vector de 768 dimensiones, chunks de 800 palabras con 120 de solapamiento, `top-k=5` y umbral coseno `0.72`. Ajustar con evaluación real; los valores no son universales. El historial recupera 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza se ejecuta cada 15 minutos mediante `pg_cron`; el borrado en cascada elimina mensajes.
 
-El proveedor usa el SDK síncrono oficial en un hilo de trabajo para no bloquear FastAPI:
-
-```python
-from portkey_ai import Portkey
-
-portkey = Portkey(base_url="env", api_key="env")
-portkey.chat.completions.create(
-    model="@dsvertex/gemini-3.5-flash-lite",
-    messages=messages,
-    max_tokens=512,
-)
-```
-
-`PORTKEY_API_KEY` se resuelve por el SDK desde el entorno. No se usa `PORTKEY_VIRTUAL_KEY`; el enrutamiento queda definido por el modelo Portkey (`@dsvertex/...`).
-
 El prompt marca documentos como datos no confiables y el resultado se valida con Pydantic contra una allowlist. Las acciones son intenciones para Vue, nunca tools de backend.
 
 ## Configuración y despliegue
@@ -57,3 +42,12 @@ Acciones permitidas: `OPEN_HOTEL_MODULE`, `OPEN_PET_PROFILE`, `CONTACT_SUPPORT`.
 ## Operación
 
 Los logs deben recolectarse como JSON en Render; cada request propaga `x-correlation-id`. El rate limit debe mantenerse distribuido (Postgres/Edge) al crecer; `slowapi` local no debe ser la fuente de verdad. El cuello de botella típico será latencia/coste de embeddings y Portkey, seguido por consultas vectoriales. Usar HNSW, batch ingestion, caché externo de embeddings y paginación de historial antes de aumentar Render.
+
+El proveedor carga `BASE_URL` y `PORTKEY_API_KEY` desde `.env` mediante `pydantic-settings`:
+
+```python
+Portkey(
+    base_url=settings.base_url,
+    api_key=settings.portkey_api_key,
+)
+```

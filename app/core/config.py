@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    base_url: str
     portkey_api_key: str
     portkey_model: str
     embedding_model: str = "text-embedding-004"

@@ -7,10 +7,12 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
+      - key: BASE_URL
+        value: https://api.portkey.ai/v1
       - key: PORTKEY_API_KEY
         sync: false
       - key: PORTKEY_MODEL
-        value: "@google/gemini-3.5-flash-lite"
+        value: "@dsvertex/gemini-3.5-flash-lite"
       - key: EMBEDDING_MODEL
         value: text-embedding-004
       - key: SUPABASE_URL

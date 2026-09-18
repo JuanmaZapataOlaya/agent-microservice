@@ -9,7 +9,10 @@ from app.core.config import Settings
 class PortkeyProvider(LLMProvider):
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._client = Portkey(base_url="env", api_key="env")
+        self._client = Portkey(
+            base_url=settings.base_url,
+            api_key=settings.portkey_api_key,
+        )
 
     async def complete(
         self, messages: Sequence[dict[str, str]], *, temperature: float = 0.2,
