@@ -6,7 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     portkey_api_key: str
     portkey_model: str
-    portkey_virtual_key: str | None = None
     embedding_model: str = "text-embedding-004"
     supabase_url: str
     supabase_service_role_key: str
