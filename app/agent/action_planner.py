@@ -4,10 +4,19 @@ from typing import Any
 
 from app.models.schemas import ActionPlan
 
-ALLOWED_ACTIONS = {"FIND_PET", "REPORT_PET"}
+ALLOWED_ACTIONS = {"FIND_PET", "REPORT_PET", "RUN_TUTORIAL"}
 VALID_KINDS = {"DOG", "CAT", "OTHER"}
 VALID_REPORT_TYPES = {"LOST", "FOUND"}
-FIND_PHYSICAL_FIELDS = ("breed", "color", "features", "accessories", "description", "note")
+REPORT_REQUIRED_FIELDS = ("type", "kind", "breed", "color", "description")
+FIND_PHYSICAL_FIELDS = (
+    "breed",
+    "color",
+    "features",
+    "accessories",
+    "description",
+    "note",
+    "query_description",
+)
 
 
 def parse_action_plan(content: str) -> ActionPlan:
@@ -65,7 +74,7 @@ def _validate_find_pet(plan: ActionPlan) -> ActionPlan:
 def _validate_report_pet(plan: ActionPlan) -> ActionPlan:
     payload = dict(plan.payload)
     missing = [
-        field for field in ("type", "kind", "description")
+        field for field in REPORT_REQUIRED_FIELDS
         if not _has_value(payload.get(field))
     ]
     if payload.get("type") not in VALID_REPORT_TYPES and "type" not in missing:
@@ -77,7 +86,9 @@ def _validate_report_pet(plan: ActionPlan) -> ActionPlan:
         questions = {
             "type": "¿La mascota está perdida o fue encontrada?",
             "kind": "¿Qué especie es: perro, gato u otra?",
-            "description": "¿De qué color, raza o características físicas es?",
+            "breed": "¿Cuál es la raza de tu mascota?",
+            "color": "¿De qué color es tu mascota?",
+            "description": "¿Qué otra característica física o distintiva debemos incluir?",
         }
         return _request_missing(plan, payload, missing, questions[next_field])
     return plan.model_copy(update={"payload": payload})

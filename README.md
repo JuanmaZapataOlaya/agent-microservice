@@ -167,7 +167,7 @@ La respuesta debe incluir el contexto del documento ingerido y tener esta estruc
 }
 ```
 
-También puedes probar una intención de búsqueda o reporte, por ejemplo `Busca un perro perdido cerca de Bogotá` o `Quiero reportar una mascota encontrada`. Las acciones permitidas son `FIND_PET` y `REPORT_PET`.
+También puedes probar una intención de búsqueda, reporte o tutorial, por ejemplo `Busca un perro perdido cerca de Bogotá`, `Quiero reportar una mascota encontrada` o `¿Qué funcionalidades tiene la aplicación?`. Las acciones permitidas son `FIND_PET`, `REPORT_PET` y `RUN_TUTORIAL`. Esta última devuelve la respuesta sobre las funcionalidades y permite que el frontend abra el tutorial guiado.
 
 ### 9. Cerrar la sesión
 

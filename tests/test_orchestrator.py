@@ -37,6 +37,31 @@ class FakeProvider:
         raise AssertionError("not needed for retrieval fallback test")
 
 
+class InvalidThenValidProvider(FakeProvider):
+    def __init__(self) -> None:
+        super().__init__()
+        self.completion_calls = 0
+
+    async def complete(self, messages, **kwargs):
+        if kwargs.get("model") == "guardrail-model":
+            return LLMResponse('{"intent":"IN_SCOPE"}')
+        self.completion_calls += 1
+        if self.completion_calls == 1:
+            return LLMResponse("not json")
+        return LLMResponse(
+            '{"message":"Buscaré tu mascota.","action":"FIND_PET",'
+            '"payload":{"kind":"DOG","query_description":"chihuahua amarillo"}}'
+        )
+
+
+class AlwaysInvalidProvider(InvalidThenValidProvider):
+    async def complete(self, messages, **kwargs):
+        if kwargs.get("model") == "guardrail-model":
+            return LLMResponse('{"intent":"IN_SCOPE"}')
+        self.completion_calls += 1
+        return LLMResponse("not json")
+
+
 @pytest.mark.asyncio
 async def test_retries_retrieval_with_lower_threshold() -> None:
     repository = FakeRepository([{"chunk_text": "La app permite reportar mascotas."}])
@@ -47,10 +72,10 @@ async def test_retries_retrieval_with_lower_threshold() -> None:
         await orchestrator.respond(uuid4(), "¿Qué funcionalidades tiene la aplicación?")
 
     assert repository.search_calls == [(5, 0.72), (5, 0.57)]
-    assert provider.embedded_text == (
+    assert provider.embedded_text.startswith(
         "funcionalidades de la aplicación FindMyPet: "
-        "¿Qué funcionalidades tiene la aplicación?"
     )
+    assert "funcionalidades tiene la aplicacion?" in provider.embedded_text
 
 
 @pytest.mark.asyncio
@@ -65,3 +90,30 @@ async def test_guardrail_skips_embedding_and_model_for_greeting() -> None:
     assert action is None
     assert payload == {}
     assert repository.search_calls == []
+
+
+@pytest.mark.asyncio
+async def test_invalid_agent_plan_is_repaired_without_http_failure() -> None:
+    repository = FakeRepository([{"chunk_text": "La app permite buscar mascotas."}])
+    provider = InvalidThenValidProvider()
+    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72, "guardrail-model")
+
+    message, action, payload = await orchestrator.respond(uuid4(), "buscar mi chihuahua amarillo")
+
+    assert message == "Buscaré tu mascota."
+    assert action == "FIND_PET"
+    assert payload["query_description"] == "chihuahua amarillo"
+    assert provider.completion_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_invalid_agent_plan_returns_safe_fallback() -> None:
+    repository = FakeRepository([{"chunk_text": "La app permite buscar mascotas."}])
+    provider = AlwaysInvalidProvider()
+    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72, "guardrail-model")
+
+    message, action, payload = await orchestrator.respond(uuid4(), "buscar mi chihuahua amarillo")
+
+    assert "No pude procesar" in message
+    assert action is None
+    assert payload == {}

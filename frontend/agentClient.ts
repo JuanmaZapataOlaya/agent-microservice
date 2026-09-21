@@ -15,7 +15,7 @@ export async function sendMessage(sessionId: string, message: string) {
   if (error) throw error;
   return data as {
     message: string;
-    action: "FIND_PET" | "REPORT_PET" | null;
+    action: "FIND_PET" | "REPORT_PET" | "RUN_TUTORIAL" | null;
     payload: Record<string, unknown>;
     session_id: string;
     correlation_id: string;
@@ -28,6 +28,8 @@ export function executeAction(response: { action: string | null; payload: Record
       return { type: "FIND_PET", params: response.payload };
     case "REPORT_PET":
       return { type: "REPORT_PET", params: response.payload };
+    case "RUN_TUTORIAL":
+      return { type: "RUN_TUTORIAL", params: response.payload };
     default:
       return null;
   }

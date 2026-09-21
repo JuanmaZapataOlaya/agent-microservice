@@ -29,7 +29,7 @@ class ChatRequest(BaseModel):
 
 class ActionResponse(BaseModel):
     message: str
-    action: Literal["FIND_PET", "REPORT_PET"] | None = None
+    action: Literal["FIND_PET", "REPORT_PET", "RUN_TUTORIAL"] | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -42,7 +42,7 @@ class ActionPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     message: str = Field(min_length=1, max_length=8000)
-    action: Literal["FIND_PET", "REPORT_PET"] | None = None
+    action: Literal["FIND_PET", "REPORT_PET", "RUN_TUTORIAL"] | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
