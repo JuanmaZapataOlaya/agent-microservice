@@ -1,16 +1,18 @@
-import logging
 import json
+import logging
 import sys
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from supabase import acreate_client
+
+from app.agent.orchestrator import AgentOrchestrator
 from app.api.routes import build_router
 from app.core.config import get_settings
 from app.ingest.ingestion_pipeline import IngestionPipeline
-from app.agent.orchestrator import AgentOrchestrator
 from app.providers.portkey_provider import PortkeyProvider
 from app.repositories.supabase_repository import SupabaseRepository
 from app.services.session_service import SessionService
+from supabase import acreate_client
 
 settings = get_settings()
 
@@ -46,7 +48,13 @@ async def register_routes() -> None:
     repository = SupabaseRepository(client)
     provider = PortkeyProvider(settings)
     sessions = SessionService(repository, settings.session_ttl_minutes)
-    agent = AgentOrchestrator(repository, provider, settings.top_k_results, settings.similarity_threshold)
+    agent = AgentOrchestrator(
+        repository,
+        provider,
+        settings.top_k_results,
+        settings.similarity_threshold,
+        settings.portkey_model_guardrail,
+    )
     ingestion = IngestionPipeline(repository, provider, settings.chunk_size, settings.chunk_overlap)
     app.include_router(build_router(sessions, agent, ingestion))
 

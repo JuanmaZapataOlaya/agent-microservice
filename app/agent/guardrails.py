@@ -1,6 +1,9 @@
+import json
 import re
 import unicodedata
 from enum import Enum
+
+from app.providers.base_llm_provider import LLMProvider
 
 
 class GuardrailKind(Enum):
@@ -21,13 +24,6 @@ _GREETING_PATTERN = re.compile(
     r"|hasta\s+luego)[!,.?\s]*$",
     re.IGNORECASE,
 )
-_DOMAIN_PATTERN = re.compile(
-    r"\b(?:mascot\w*|perr\w*|gat\w*|animal\w*|app|aplicacion\w*|plataform\w*"
-    r"|funcionalidad\w*|report\w*|perdid\w*|encontrad\w*|busc\w*|hallad\w*"
-    r"|contact\w*|evidenci\w*|fotograf\w*|duen\w*|reclam\w*|notificacion\w*"
-    r"|historial\w*|usuari\w*|ayud\w*|informacion\w*|funcion\w*)\b",
-    re.IGNORECASE,
-)
 _LEADING_GREETING_PATTERN = re.compile(
     r"^\s*(?:hola|holi|hello|hey|buenos?\s+dias|buenas(?:\s+tardes|\s+noches)?)"
     r"(?:[\s,!.:;-]+|$)",
@@ -44,19 +40,52 @@ def _normalize(value: str) -> str:
     return "".join(char for char in normalized if not unicodedata.combining(char)).lower().strip()
 
 
-def classify_message(message: str) -> GuardrailDecision:
+def classify_message(message: str) -> GuardrailDecision | None:
     normalized = _normalize(message)
     if _GREETING_PATTERN.fullmatch(normalized):
         return GuardrailDecision(
             GuardrailKind.GREETING,
             "¡Hola! Soy el asistente de FindMyPet. Puedo ayudarte con mascotas y con las funcionalidades de la aplicación.",
         )
-    if not _DOMAIN_PATTERN.search(normalized):
-        return GuardrailDecision(
-            GuardrailKind.OUT_OF_SCOPE,
-            "Puedo ayudarte únicamente con mascotas y con las funcionalidades de FindMyPet. ¿Qué necesitas saber?",
+    return None
+
+
+CLASSIFIER_SYSTEM_PROMPT = """Classify the user's overall intent for the FindMyPet assistant.
+Return only valid JSON with exactly one key: {"intent":"IN_SCOPE"} or {"intent":"OUT_OF_SCOPE"}.
+IN_SCOPE means the user wants help with FindMyPet, lost/found pets, pet reports, searching pets,
+or the application's features.
+OUT_OF_SCOPE means code, programming, homework, academic tasks, cybersecurity, general knowledge,
+writing tasks, or any unrelated request, even if it mentions a dog, cat, pet, or FindMyPet.
+Judge the complete request, not isolated keywords. When uncertain, return OUT_OF_SCOPE."""
+
+
+async def classify_intent(
+    provider: LLMProvider,
+    message: str,
+    model: str,
+) -> GuardrailDecision:
+    try:
+        response = await provider.complete(
+            [
+                {"role": "system", "content": CLASSIFIER_SYSTEM_PROMPT},
+                {"role": "user", "content": message},
+            ],
+            temperature=None,
+            max_completion_tokens=20,
+            response_format={"type": "json_object"},
+            model=model,
+            reasoning_effort="low",
         )
-    return GuardrailDecision(GuardrailKind.IN_SCOPE)
+        intent = json.loads(response.content).get("intent")
+    except (json.JSONDecodeError, AttributeError, TypeError, ValueError):
+        intent = "OUT_OF_SCOPE"
+
+    if intent == GuardrailKind.IN_SCOPE.name:
+        return GuardrailDecision(GuardrailKind.IN_SCOPE)
+    return GuardrailDecision(
+        GuardrailKind.OUT_OF_SCOPE,
+        "Puedo ayudarte únicamente con mascotas y con las funcionalidades de FindMyPet. ¿Qué necesitas?",
+    )
 
 
 def retrieval_query(message: str) -> str:

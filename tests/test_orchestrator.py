@@ -3,6 +3,7 @@ from uuid import uuid4
 import pytest
 
 from app.agent.orchestrator import AgentOrchestrator
+from app.providers.models import LLMResponse
 
 
 class FakeRepository:
@@ -31,6 +32,8 @@ class FakeProvider:
         return [0.1]
 
     async def complete(self, messages, **kwargs):
+        if kwargs.get("model") == "guardrail-model":
+            return LLMResponse('{"intent":"IN_SCOPE"}')
         raise AssertionError("not needed for retrieval fallback test")
 
 
@@ -38,7 +41,7 @@ class FakeProvider:
 async def test_retries_retrieval_with_lower_threshold() -> None:
     repository = FakeRepository([{"chunk_text": "La app permite reportar mascotas."}])
     provider = FakeProvider()
-    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72)
+    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72, "guardrail-model")
 
     with pytest.raises(AssertionError, match="not needed"):
         await orchestrator.respond(uuid4(), "¿Qué funcionalidades tiene la aplicación?")
@@ -54,7 +57,7 @@ async def test_retries_retrieval_with_lower_threshold() -> None:
 async def test_guardrail_skips_embedding_and_model_for_greeting() -> None:
     repository = FakeRepository([])
     provider = FakeProvider()
-    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72)
+    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72, "guardrail-model")
 
     message, action, payload = await orchestrator.respond(uuid4(), "hola")
 

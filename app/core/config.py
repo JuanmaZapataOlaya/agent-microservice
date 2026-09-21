@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     base_url: str
     portkey_api_key: str
     portkey_model: str
+    portkey_model_guardrail: str
     supabase_url: str
     supabase_service_role_key: str
     edge_shared_secret: str
