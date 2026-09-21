@@ -1,63 +1,47 @@
 # FindMyPet Agent Microservice
 
-Microservicio FastAPI stateless para RAG conversacional en Render. Supabase es la única persistencia: sesiones, mensajes y pgvector. El frontend sólo llama a la Supabase Edge Function; ningún cliente conoce Render, Portkey o Gemini.
+Microservicio FastAPI stateless para conversaciones con RAG. Supabase almacena las sesiones, los mensajes y los vectores; Portkey proporciona los embeddings y el modelo de lenguaje.
 
-## Componentes y flujo
+## Probar el agente paso a paso
 
-```text
-Vue -> Edge Function (JWT + validación) -> FastAPI
-                                      -> sesión Supabase
-                                      -> embedding Portkey -> pgvector
-                                      -> DeepAgent/LLMProvider -> Portkey -> Gemini
-                                      -> {message, action, payload}
-```
-
-`api` contiene HTTP, `agent` la orquestación y el action planner, `rag` prompts y recuperación, `ingest` Markdown/chunking, `providers` la abstracción LLM (la implementación es Portkey), `repositories` Supabase, `services` casos de uso, `models` contratos y `core` configuración.
-
-## RAG y memoria
-
-La configuración base usa `text-embedding-004` mediante Portkey, vector de 768 dimensiones, chunks de 800 palabras con 120 de solapamiento, `top-k=5` y umbral coseno `0.72`. Ajustar con evaluación real; los valores no son universales. El historial recupera 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza se ejecuta cada 15 minutos mediante `pg_cron`; el borrado en cascada elimina mensajes.
-
-El prompt marca documentos como datos no confiables y el resultado se valida con Pydantic contra una allowlist. Las acciones son intenciones para Vue, nunca tools de backend.
-
-## Pruebas locales paso a paso
+Esta guía prueba el servicio directamente contra FastAPI en local. En producción, el frontend debe llamar a la Supabase Edge Function, no a este servicio directamente.
 
 ### 1. Requisitos
 
 - Python 3.11 o superior, o Docker Desktop.
-- Un proyecto Supabase con `pgvector` disponible.
-- Una API key de Portkey y un modelo configurado en Portkey.
-- PowerShell en Windows.
+- Un proyecto Supabase con `pgvector` habilitado.
+- Una API key y un modelo configurado en Portkey.
+- PowerShell en Windows (los comandos también se pueden adaptar a Bash).
 
-### 2. Configurar variables de entorno
+### 2. Instalar dependencias y configurar el entorno
 
-Desde la raíz del proyecto:
+Desde la raíz del repositorio:
 
 ```powershell
+python -m pip install -e .
 Copy-Item .env.example .env
 notepad .env
 ```
 
-Completar como mínimo:
+Completa `.env` con los valores de tu proyecto:
 
 ```env
-BASE_URL=https://api.portkey.ai/v1
+BASE_URL=url de portkey
 PORTKEY_API_KEY=tu_api_key_de_portkey
 PORTKEY_MODEL=@dsvertex/gemini-3.5-flash-lite
-EMBEDDING_MODEL=text-embedding-004
 SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 EDGE_SHARED_SECRET=un_secreto_largo_para_pruebas
 INGEST_API_KEY=otra_clave_larga_para_pruebas
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` y ambas claves internas son sólo para el backend. No las expongas en Vue, en el navegador ni en un repositorio.
+Conserva el resto de valores de `.env.example` salvo que necesites ajustarlos. Las variables `SUPABASE_SERVICE_ROLE_KEY`, `EDGE_SHARED_SECRET` e `INGEST_API_KEY` son privadas: no las expongas en el frontend ni las subas al repositorio.
 
-### 3. Preparar Supabase
+### 3. Preparar la base de datos
 
-En Supabase abre **SQL Editor**, pega el contenido de `supabase/schema.sql` y ejecútalo. Esto crea las tablas de sesiones, mensajes y conocimiento, el índice vectorial, la función de búsqueda y la limpieza TTL.
+En el **SQL Editor** de Supabase, ejecuta el contenido de [`supabase/schema.sql`](supabase/schema.sql). El script crea las tablas, el índice vectorial, la función de búsqueda y la limpieza de sesiones expiradas.
 
-Comprueba que la dimensión del embedding sea compatible con el SQL:
+El esquema espera embeddings de 1536 dimensiones, que es la dimensión predeterminada de `@azure-openai/text-embedding-3-small`. Comprueba la dimensión después de ingerir un documento:
 
 ```sql
 select vector_dims(embedding)
@@ -65,24 +49,27 @@ from knowledge_chunks
 limit 1;
 ```
 
-El proyecto está configurado para embeddings de 768 dimensiones. Si el modelo de embeddings seleccionado devuelve otra dimensión, hay que cambiar `vector(768)` y la función SQL antes de ingerir documentos.
+### 4. Levantar el servicio
 
-### 4. Ejecutar el agente
+Elige una de estas opciones.
 
-#### Opción A: Docker
+#### Opción A: Python
+
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+#### Opción B: Docker
 
 ```powershell
 docker compose up --build
 ```
 
-#### Opción B: Python
+Deja esa terminal ejecutándose. Si usas Docker, el archivo `.env` se carga automáticamente mediante `docker-compose.yml`.
 
-```powershell
-python -m pip install -e .
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
+### 5. Comprobar el estado de la API
 
-En otra terminal, comprobar el servicio:
+En otra terminal:
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health
@@ -94,9 +81,11 @@ Respuesta esperada:
 {"status":"ok"}
 ```
 
-### 5. Ingerir un documento Markdown
+Si esta llamada falla, revisa primero los logs de la terminal donde levantaste el servicio y confirma que `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` sean válidos.
 
-Crea un archivo de prueba:
+### 6. Ingerir un documento de prueba
+
+Crea un documento Markdown con información que el agente pueda consultar:
 
 ```powershell
 New-Item -ItemType Directory -Force .\knowledge | Out-Null
@@ -108,41 +97,48 @@ El horario de atención es de lunes a sábado.
 '@ | Set-Content -Encoding utf8 .\knowledge\hoteles.md
 ```
 
-Envía el documento directamente al agente local:
+Usa en el header el mismo valor de `INGEST_API_KEY` que guardaste en `.env`:
 
 ```powershell
+$ingestKey = "otra_clave_larga_para_pruebas"
+
 curl.exe -X POST "http://127.0.0.1:8000/ingest" `
-  -H "x-ingest-key: otra_clave_larga_para_pruebas" `
-  -F "file=@knowledge\hoteles.md;type=text/markdown"
+  -H "x-ingest-key: $ingestKey" `
+  -F "file=@knowledge\DB_Conocimiento.md;type=text/markdown"
 ```
 
-La respuesta debe indicar el nombre del documento y el número de chunks creados:
+Respuesta esperada:
 
 ```json
 {"document_name":"hoteles.md","chunks":1}
 ```
 
-La ingesta elimina primero los chunks anteriores con el mismo nombre, por lo que repetir la prueba es idempotente a nivel de documento.
+La ingesta reemplaza los chunks anteriores con el mismo nombre, por lo que puedes repetir este paso durante las pruebas.
 
-### 6. Crear una sesión
+### 7. Crear una sesión
 
-En pruebas directas contra FastAPI se usa un `user_id` de prueba. La Edge Function sustituye ese valor por el usuario autenticado de Supabase.
+Las rutas internas requieren el header `x-edge-secret`. En esta prueba, usa el mismo valor de `EDGE_SHARED_SECRET` de `.env`:
 
 ```powershell
+$edgeSecret = "un_secreto_largo_para_pruebas"
 $headers = @{
   "Content-Type" = "application/json"
-  "x-edge-secret" = "un_secreto_largo_para_pruebas"
+  "x-edge-secret" = $edgeSecret
 }
+
 $session = Invoke-RestMethod `
   -Method Post `
   -Uri "http://127.0.0.1:8000/session/start" `
   -Headers $headers `
   -Body '{"user_id":"local-test-user"}'
-$session
+
+$session | ConvertTo-Json
 $sessionId = $session.session_id
 ```
 
-### 7. Enviar una pregunta RAG
+Guarda el valor de `session_id`; se necesita para consultar al agente y cerrar la sesión.
+
+### 8. Enviar una pregunta al agente
 
 ```powershell
 $body = @{
@@ -155,10 +151,11 @@ $answer = Invoke-RestMethod `
   -Uri "http://127.0.0.1:8000/chat" `
   -Headers $headers `
   -Body $body
+
 $answer | ConvertTo-Json -Depth 10
 ```
 
-La respuesta tiene siempre esta forma:
+La respuesta debe incluir el contexto del documento ingerido y tener esta estructura:
 
 ```json
 {
@@ -170,45 +167,183 @@ La respuesta tiene siempre esta forma:
 }
 ```
 
-Para cerrar la sesión:
+También puedes probar una intención de navegación, por ejemplo `Quiero ver el perfil de mi mascota`. Las acciones permitidas son `OPEN_HOTEL_MODULE`, `OPEN_PET_PROFILE` y `CONTACT_SUPPORT`.
+
+### 9. Cerrar la sesión
 
 ```powershell
 Invoke-RestMethod `
   -Method Post `
   -Uri "http://127.0.0.1:8000/session/end?session_id=$sessionId" `
-  -Headers @{"x-edge-secret"="un_secreto_largo_para_pruebas"}
+  -Headers @{"x-edge-secret" = $edgeSecret}
 ```
 
-Estas llamadas directas son únicamente para desarrollo. En producción Vue debe invocar la Edge Function, que valida el JWT y oculta los headers internos.
-
-## Configuración y despliegue
+Si levantaste el servicio con Docker, detenlo al terminar:
 
 ```powershell
-Copy-Item .env.example .env
-docker compose up --build
+docker compose down
 ```
 
-Aplicar `supabase/schema.sql`. En Render, usar `render.yaml`, configurar secretos (`PORTKEY_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `EDGE_SHARED_SECRET`, `INGEST_API_KEY`) y establecer `AGENT_SERVICE_URL` en los secrets de la Edge Function. `/health` es el health check. Un solo worker evita estado local; escalar horizontalmente es seguro porque no hay memoria en proceso.
+## Cliente de pruebas `prueba.py`
 
-## Contratos
+`app\agent\prueba.py` automatiza el flujo completo desde la terminal: comprueba la API, ingiere un documento, crea una sesión, permite conversar con el agente y cierra la sesión al finalizar. El script lee `EDGE_SHARED_SECRET` e `INGEST_API_KEY` desde el archivo `.env` de la raíz.
 
-`POST /chat`, `/session/start`, `/session/end`, `/ingest` y `GET /health` están detrás de headers internos, salvo health. La Edge Function autentica el JWT de Supabase antes de reenviar. La respuesta de chat siempre es:
+### Requisitos
 
-```json
-{"message":"texto","action":null,"payload":{}}
+Antes de ejecutar el cliente:
+
+1. Configura `.env` con las claves necesarias.
+2. Ejecuta el esquema de Supabase.
+3. Levanta el microservicio en otra terminal:
+
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Acciones permitidas: `OPEN_HOTEL_MODULE`, `OPEN_PET_PROFILE`, `CONTACT_SUPPORT`.
+4. Confirma que existe el documento predeterminado:
+
+```powershell
+Test-Path .\knowledge\DB_Conocimiento.md
+```
+
+La ruta predeterminada es `knowledge\DB_Conocimiento.md`, relativa a la raíz del proyecto.
+
+### Ejecutar desde la raíz del proyecto
+
+Sitúate en la raíz de `agent-microservice` y ejecuta:
+
+```powershell
+python .\app\agent\prueba.py
+```
+
+El script comprobará `/health`, ingerirá el documento predeterminado, creará una sesión y mostrará:
+
+```text
+Escribe preguntas para el agente. Usa 'salir' para terminar.
+```
+
+Escribe preguntas y pulsa Enter. Para finalizar:
+
+```text
+salir
+```
+
+También reconoce `exit` y `quit`.
+
+### Ejecutar desde la carpeta `app\agent`
+
+```powershell
+Set-Location .\app\agent
+python .\prueba.py
+```
+
+### Ver todos los comandos disponibles
+
+```powershell
+python .\app\agent\prueba.py --help
+```
+
+Si estás dentro de `app\agent`:
+
+```powershell
+python .\prueba.py --help
+```
+
+### Usar un documento diferente
+
+Desde la raíz del proyecto:
+
+```powershell
+python .\app\agent\prueba.py `
+  --file .\knowledge\otro_documento.md
+```
+
+Desde `app\agent`:
+
+```powershell
+python .\prueba.py `
+  --file ..\..\knowledge\otro_documento.md
+```
+
+El archivo debe ser Markdown o texto válido en UTF-8.
+
+### Omitir la ingesta
+
+Usa esta opción si el documento ya fue cargado en Supabase y solo quieres conversar:
+
+Desde la raíz:
+
+```powershell
+python .\app\agent\prueba.py --skip-ingest
+```
+
+Desde `app\agent`:
+
+```powershell
+python .\prueba.py --skip-ingest
+```
+
+### Cambiar la URL del servicio
+
+Para probar otro puerto o un despliegue remoto:
+
+```powershell
+python .\app\agent\prueba.py `
+  --url http://127.0.0.1:9000
+```
+
+También puedes definir `AGENT_URL` en `.env`:
+
+```env
+AGENT_URL=http://127.0.0.1:8000
+```
+
+El parámetro `--url` tiene prioridad sobre `AGENT_URL`.
+
+### Combinaciones frecuentes
+
+Usar otro documento sin volver a ingerirlo no es necesario; si se usa `--skip-ingest`, el parámetro `--file` se ignora:
+
+```powershell
+# Ingerir otro documento y conversar
+python .\app\agent\prueba.py --file .\knowledge\reportes.md
+
+# Usar el conocimiento existente en otro puerto
+python .\app\agent\prueba.py --skip-ingest --url http://127.0.0.1:9000
+```
+
+Si aparece `Falta EDGE_SHARED_SECRET` o `Falta INGEST_API_KEY`, revisa `.env` y reinicia el servicio después de modificarlo. Si aparece un error de conexión, confirma que Uvicorn esté ejecutándose y que la URL indicada sea correcta.
+
+## Arquitectura y flujo
+
+```text
+Vue -> Supabase Edge Function (JWT + validación) -> FastAPI
+                                                   -> sesión Supabase
+                                                   -> embedding Portkey -> pgvector
+                                                   -> DeepAgent/LLMProvider -> Portkey -> Gemini
+                                                   -> {message, action, payload}
+```
+
+`api` contiene HTTP; `agent` la orquestación y el action planner; `rag` los prompts y la recuperación; `ingest` la carga y división de Markdown; `providers` la abstracción LLM; `repositories` el acceso a Supabase; `services` los casos de uso; `models` los contratos; y `core` la configuración.
+
+## RAG y memoria
+
+La configuración base usa `@azure-openai/text-embedding-3-small` con `encoding_format="float"`, vectores de 1536 dimensiones, chunks de 800 palabras con 120 de solapamiento, `top-k=5` y umbral coseno `0.72`. El historial recupera hasta 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza de sesiones expiradas se ejecuta mediante `pg_cron`.
+
+El prompt trata los documentos como datos no confiables y la respuesta se valida con Pydantic contra una allowlist. Las acciones son intenciones para Vue, nunca herramientas de backend.
+
+## Contratos HTTP
+
+| Método | Ruta | Autenticación |
+|---|---|---|
+| `GET` | `/health` | Ninguna |
+| `POST` | `/session/start` | `x-edge-secret` |
+| `POST` | `/session/end` | `x-edge-secret` |
+| `POST` | `/chat` | `x-edge-secret` |
+| `POST` | `/ingest` | `x-ingest-key` |
+
+La Edge Function autentica el JWT de Supabase antes de reenviar las solicitudes y oculta los headers internos. En producción, configura `AGENT_SERVICE_URL` en sus secrets y aplica `supabase/schema.sql` antes de desplegar en Render con `render.yaml`.
 
 ## Operación
 
-Los logs deben recolectarse como JSON en Render; cada request propaga `x-correlation-id`. El rate limit debe mantenerse distribuido (Postgres/Edge) al crecer; `slowapi` local no debe ser la fuente de verdad. El cuello de botella típico será latencia/coste de embeddings y Portkey, seguido por consultas vectoriales. Usar HNSW, batch ingestion, caché externo de embeddings y paginación de historial antes de aumentar Render.
-
-El proveedor carga `BASE_URL` y `PORTKEY_API_KEY` desde `.env` mediante `pydantic-settings`:
-
-```python
-Portkey(
-    base_url=settings.base_url,
-    api_key=settings.portkey_api_key,
-)
-```
+Los logs se emiten como JSON y cada request puede propagar `x-correlation-id`. El rate limit debe mantenerse distribuido mediante Postgres o la Edge Function al escalar. El cuello de botella típico es la latencia y el coste de embeddings y Portkey, seguido por las consultas vectoriales.

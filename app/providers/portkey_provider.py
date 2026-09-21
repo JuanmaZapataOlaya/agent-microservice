@@ -34,7 +34,8 @@ class PortkeyProvider(LLMProvider):
     async def embed(self, text: str) -> list[float]:
         response = await asyncio.to_thread(
             self._client.embeddings.create,
-            model=self._settings.embedding_model,
+            model="@azure-openai/text-embedding-3-small",
             input=text,
+            encoding_format="float",
         )
         return list(response.data[0].embedding)

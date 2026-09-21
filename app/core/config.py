@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     base_url: str
     portkey_api_key: str
     portkey_model: str
-    embedding_model: str = "text-embedding-004"
     supabase_url: str
     supabase_service_role_key: str
     edge_shared_secret: str
