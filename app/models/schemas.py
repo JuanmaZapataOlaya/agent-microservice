@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class SessionStartRequest(BaseModel):
@@ -28,7 +29,7 @@ class ChatRequest(BaseModel):
 
 class ActionResponse(BaseModel):
     message: str
-    action: str | None = None
+    action: Literal["FIND_PET", "REPORT_PET", "RUN_TUTORIAL"] | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -38,8 +39,10 @@ class ChatResponse(ActionResponse):
 
 
 class ActionPlan(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     message: str = Field(min_length=1, max_length=8000)
-    action: Literal["OPEN_HOTEL_MODULE", "OPEN_PET_PROFILE", "CONTACT_SUPPORT"] | None = None
+    action: Literal["FIND_PET", "REPORT_PET", "RUN_TUTORIAL"] | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -167,7 +167,7 @@ La respuesta debe incluir el contexto del documento ingerido y tener esta estruc
 }
 ```
 
-También puedes probar una intención de navegación, por ejemplo `Quiero ver el perfil de mi mascota`. Las acciones permitidas son `OPEN_HOTEL_MODULE`, `OPEN_PET_PROFILE` y `CONTACT_SUPPORT`.
+También puedes probar una intención de búsqueda, reporte o tutorial, por ejemplo `Busca un perro perdido cerca de Bogotá`, `Quiero reportar una mascota encontrada` o `¿Qué funcionalidades tiene la aplicación?`. Las acciones permitidas son `FIND_PET`, `REPORT_PET` y `RUN_TUTORIAL`. Esta última devuelve la respuesta sobre las funcionalidades y permite que el frontend abra el tutorial guiado.
 
 ### 9. Cerrar la sesión
 
@@ -328,7 +328,7 @@ Vue -> Supabase Edge Function (JWT + validación) -> FastAPI
 
 ## RAG y memoria
 
-La configuración base usa `@azure-openai/text-embedding-3-small` con `encoding_format="float"`, vectores de 1536 dimensiones, chunks de 800 palabras con 120 de solapamiento, `top-k=5` y umbral coseno `0.72`. El historial recupera hasta 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza de sesiones expiradas se ejecuta mediante `pg_cron`.
+La configuración base usa `@azure-openai/text-embedding-3-small` con `encoding_format="float"`, vectores de 1536 dimensiones, chunks de 350 caracteres con 40 de solapamiento, `top-k=5` y umbral coseno `0.62`. El splitter recursivo prioriza párrafos, saltos de línea, oraciones y espacios para conservar la estructura Markdown y evitar cortes innecesarios. Si una consulta del dominio no encuentra chunks con ese umbral, se reintenta con un umbral 0.15 menor. Los saludos y mensajes fuera del dominio se responden con guardrails regex sin llamar al proveedor de embeddings ni al modelo. El historial recupera hasta 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza de sesiones expiradas se ejecuta mediante `pg_cron`.
 
 El prompt trata los documentos como datos no confiables y la respuesta se valida con Pydantic contra una allowlist. Las acciones son intenciones para Vue, nunca herramientas de backend.
 

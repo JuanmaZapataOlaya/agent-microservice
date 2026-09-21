@@ -13,17 +13,23 @@ export async function sendMessage(sessionId: string, message: string) {
     body: { session_id: sessionId, message },
   });
   if (error) throw error;
-  return data as { message: string; action: string | null; payload: Record<string, unknown> };
+  return data as {
+    message: string;
+    action: "FIND_PET" | "REPORT_PET" | "RUN_TUTORIAL" | null;
+    payload: Record<string, unknown>;
+    session_id: string;
+    correlation_id: string;
+  };
 }
 
 export function executeAction(response: { action: string | null; payload: Record<string, unknown> }) {
   switch (response.action) {
-    case "OPEN_HOTEL_MODULE":
-      return { route: "/hotels", params: response.payload };
-    case "OPEN_PET_PROFILE":
-      return { route: "/pets/profile", params: response.payload };
-    case "CONTACT_SUPPORT":
-      return { route: "/support", params: response.payload };
+    case "FIND_PET":
+      return { type: "FIND_PET", params: response.payload };
+    case "REPORT_PET":
+      return { type: "REPORT_PET", params: response.payload };
+    case "RUN_TUTORIAL":
+      return { type: "RUN_TUTORIAL", params: response.payload };
     default:
       return null;
   }

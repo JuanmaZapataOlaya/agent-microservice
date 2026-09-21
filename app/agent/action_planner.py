@@ -1,8 +1,22 @@
 import json
+import re
 from typing import Any
+
 from app.models.schemas import ActionPlan
 
-ALLOWED_ACTIONS = {"OPEN_HOTEL_MODULE", "OPEN_PET_PROFILE", "CONTACT_SUPPORT"}
+ALLOWED_ACTIONS = {"FIND_PET", "REPORT_PET", "RUN_TUTORIAL"}
+VALID_KINDS = {"DOG", "CAT", "OTHER"}
+VALID_REPORT_TYPES = {"LOST", "FOUND"}
+REPORT_REQUIRED_FIELDS = ("type", "kind", "breed", "color", "description")
+FIND_PHYSICAL_FIELDS = (
+    "breed",
+    "color",
+    "features",
+    "accessories",
+    "description",
+    "note",
+    "query_description",
+)
 
 
 def parse_action_plan(content: str) -> ActionPlan:
@@ -14,9 +28,93 @@ def parse_action_plan(content: str) -> ActionPlan:
         raise ValueError("LLM returned an invalid action plan") from exc
     if plan.action is not None and plan.action not in ALLOWED_ACTIONS:
         raise ValueError("Action is not in the allowlist")
-    if plan.action is None:
-        plan.payload = {}
+    return apply_slot_filling(plan)
+
+
+def apply_slot_filling(plan: ActionPlan) -> ActionPlan:
+    if plan.action == "FIND_PET":
+        return _validate_find_pet(plan)
+    if plan.action == "REPORT_PET":
+        return _validate_report_pet(plan)
     return plan
+
+
+def _validate_find_pet(plan: ActionPlan) -> ActionPlan:
+    payload = dict(plan.payload)
+    missing: list[str] = []
+    if payload.get("kind") not in VALID_KINDS:
+        missing.append("kind")
+    if not any(_has_value(payload.get(field)) for field in FIND_PHYSICAL_FIELDS):
+        missing.append("breed_or_color_or_features")
+
+    if missing:
+        return _request_missing(
+            plan,
+            payload,
+            missing,
+            "¿De qué raza o color es, o tiene alguna marca o accesorio distintivo?",
+        )
+
+    query_description = payload.get("query_description")
+    if not _has_value(query_description):
+        physical_values = [
+            str(payload[field]) for field in FIND_PHYSICAL_FIELDS if _has_value(payload.get(field))
+        ]
+        payload["query_description"] = _limit_words(" ".join(physical_values), 10)
+    elif len(str(query_description).split()) > 10:
+        return _request_missing(
+            plan,
+            payload,
+            ["query_description"],
+            "¿Puedes resumir las características físicas en máximo 10 palabras?",
+        )
+    return plan.model_copy(update={"payload": payload})
+
+
+def _validate_report_pet(plan: ActionPlan) -> ActionPlan:
+    payload = dict(plan.payload)
+    missing = [
+        field for field in REPORT_REQUIRED_FIELDS
+        if not _has_value(payload.get(field))
+    ]
+    if payload.get("type") not in VALID_REPORT_TYPES and "type" not in missing:
+        missing.append("type")
+    if payload.get("kind") not in VALID_KINDS and "kind" not in missing:
+        missing.append("kind")
+    if missing:
+        next_field = missing[0]
+        questions = {
+            "type": "¿La mascota está perdida o fue encontrada?",
+            "kind": "¿Qué especie es: perro, gato u otra?",
+            "breed": "¿Cuál es la raza de tu mascota?",
+            "color": "¿De qué color es tu mascota?",
+            "description": "¿Qué otra característica física o distintiva debemos incluir?",
+        }
+        return _request_missing(plan, payload, missing, questions[next_field])
+    return plan.model_copy(update={"payload": payload})
+
+
+def _request_missing(
+    plan: ActionPlan,
+    payload: dict[str, Any],
+    missing: list[str],
+    message: str,
+) -> ActionPlan:
+    return plan.model_copy(
+        update={
+            "message": message,
+            "action": None,
+            "payload": {"draft": payload, "missing_fields": missing},
+        }
+    )
+
+
+def _has_value(value: Any) -> bool:
+    return value is not None and str(value).strip() != ""
+
+
+def _limit_words(value: str, limit: int) -> str:
+    return " ".join(re.findall(r"\S+", value)[:limit])
 
 
 def _normalize_plan(raw: Any) -> Any:
