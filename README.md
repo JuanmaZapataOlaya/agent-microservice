@@ -328,7 +328,7 @@ Vue -> Supabase Edge Function (JWT + validación) -> FastAPI
 
 ## RAG y memoria
 
-La configuración base usa `@azure-openai/text-embedding-3-small` con `encoding_format="float"`, vectores de 1536 dimensiones, chunks de 800 palabras con 120 de solapamiento, `top-k=5` y umbral coseno `0.72`. El historial recupera hasta 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza de sesiones expiradas se ejecuta mediante `pg_cron`.
+La configuración base usa `@azure-openai/text-embedding-3-small` con `encoding_format="float"`, vectores de 1536 dimensiones, chunks de 800 palabras con 120 de solapamiento, `top-k=5` y umbral coseno `0.62`. Si una consulta del dominio no encuentra chunks con ese umbral, se reintenta con un umbral 0.15 menor. Los saludos y mensajes fuera del dominio se responden con guardrails regex sin llamar al proveedor de embeddings ni al modelo. El historial recupera hasta 20 mensajes por sesión y cada request comprueba `expires_at`. La limpieza de sesiones expiradas se ejecuta mediante `pg_cron`.
 
 El prompt trata los documentos como datos no confiables y la respuesta se valida con Pydantic contra una allowlist. Las acciones son intenciones para Vue, nunca herramientas de backend.
 
