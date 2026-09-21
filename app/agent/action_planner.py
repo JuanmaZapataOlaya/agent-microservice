@@ -1,8 +1,9 @@
 import json
 from typing import Any
+
 from app.models.schemas import ActionPlan
 
-ALLOWED_ACTIONS = {"OPEN_HOTEL_MODULE", "OPEN_PET_PROFILE", "CONTACT_SUPPORT"}
+ALLOWED_ACTIONS = {"FIND_PET", "REPORT_PET"}
 
 
 def parse_action_plan(content: str) -> ActionPlan:

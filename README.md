@@ -167,7 +167,7 @@ La respuesta debe incluir el contexto del documento ingerido y tener esta estruc
 }
 ```
 
-También puedes probar una intención de navegación, por ejemplo `Quiero ver el perfil de mi mascota`. Las acciones permitidas son `OPEN_HOTEL_MODULE`, `OPEN_PET_PROFILE` y `CONTACT_SUPPORT`.
+También puedes probar una intención de búsqueda o reporte, por ejemplo `Busca un perro perdido cerca de Bogotá` o `Quiero reportar una mascota encontrada`. Las acciones permitidas son `FIND_PET` y `REPORT_PET`.
 
 ### 9. Cerrar la sesión
 
