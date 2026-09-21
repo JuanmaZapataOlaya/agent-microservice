@@ -23,7 +23,11 @@ class FakeRepository:
 
 
 class FakeProvider:
+    def __init__(self) -> None:
+        self.embedded_text: str | None = None
+
     async def embed(self, text):
+        self.embedded_text = text
         return [0.1]
 
     async def complete(self, messages, **kwargs):
@@ -33,12 +37,17 @@ class FakeProvider:
 @pytest.mark.asyncio
 async def test_retries_retrieval_with_lower_threshold() -> None:
     repository = FakeRepository([{"chunk_text": "La app permite reportar mascotas."}])
-    orchestrator = AgentOrchestrator(repository, FakeProvider(), 5, 0.72)
+    provider = FakeProvider()
+    orchestrator = AgentOrchestrator(repository, provider, 5, 0.72)
 
     with pytest.raises(AssertionError, match="not needed"):
         await orchestrator.respond(uuid4(), "¿Qué funcionalidades tiene la aplicación?")
 
     assert repository.search_calls == [(5, 0.72), (5, 0.57)]
+    assert provider.embedded_text == (
+        "funcionalidades de la aplicación FindMyPet: "
+        "¿Qué funcionalidades tiene la aplicación?"
+    )
 
 
 @pytest.mark.asyncio

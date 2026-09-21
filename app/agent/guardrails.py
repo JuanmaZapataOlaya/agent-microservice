@@ -28,6 +28,15 @@ _DOMAIN_PATTERN = re.compile(
     r"|historial\w*|usuari\w*|ayud\w*|informacion\w*|funcion\w*)\b",
     re.IGNORECASE,
 )
+_LEADING_GREETING_PATTERN = re.compile(
+    r"^\s*(?:hola|holi|hello|hey|buenos?\s+dias|buenas(?:\s+tardes|\s+noches)?)"
+    r"(?:[\s,!.:;-]+|$)",
+    re.IGNORECASE,
+)
+_APP_INTENT_PATTERN = re.compile(
+    r"\b(?:app|aplicacion\w*|plataform\w*|funcionalidad\w*|funcion\w*)\b",
+    re.IGNORECASE,
+)
 
 
 def _normalize(value: str) -> str:
@@ -48,3 +57,11 @@ def classify_message(message: str) -> GuardrailDecision:
             "Puedo ayudarte únicamente con mascotas y con las funcionalidades de FindMyPet. ¿Qué necesitas saber?",
         )
     return GuardrailDecision(GuardrailKind.IN_SCOPE)
+
+
+def retrieval_query(message: str) -> str:
+    """Remove conversational noise and anchor app questions to the knowledge domain."""
+    query = _LEADING_GREETING_PATTERN.sub("", message).strip()
+    if _APP_INTENT_PATTERN.search(query):
+        return f"funcionalidades de la aplicación FindMyPet: {query}"
+    return query or message

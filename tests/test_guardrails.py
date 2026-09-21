@@ -1,4 +1,4 @@
-from app.agent.guardrails import GuardrailKind, classify_message
+from app.agent.guardrails import GuardrailKind, classify_message, retrieval_query
 
 
 def test_greeting_is_handled_without_rag() -> None:
@@ -20,3 +20,10 @@ def test_unrelated_question_is_rejected() -> None:
 
     assert decision.kind is GuardrailKind.OUT_OF_SCOPE
     assert decision.response
+
+
+def test_retrieval_query_removes_greeting_and_anchors_app_intent() -> None:
+    assert retrieval_query("hola me gustaria saber que se puede hacer en la app") == (
+        "funcionalidades de la aplicación FindMyPet: "
+        "me gustaria saber que se puede hacer en la app"
+    )

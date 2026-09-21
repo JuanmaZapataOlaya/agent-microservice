@@ -1,4 +1,5 @@
 from functools import lru_cache
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
     edge_shared_secret: str
     ingest_api_key: str
     session_ttl_minutes: int = Field(default=60, ge=1)
-    top_k_results: int = Field(default=5, ge=1, le=20)
+    top_k_results: int = Field(default=8, ge=1, le=20)
     similarity_threshold: float = Field(default=0.62, ge=0, le=1)
     chunk_size: int = Field(default=350, ge=100)
     chunk_overlap: int = Field(default=40, ge=0)
