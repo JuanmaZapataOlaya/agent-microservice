@@ -7,6 +7,12 @@ const edgeSecret = Deno.env.get("EDGE_SHARED_SECRET")!;
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    if (!agentUrl || !edgeSecret) {
+      return new Response(JSON.stringify({ detail: "Gateway is not configured" }), {
+        status: 503,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const auth = request.headers.get("Authorization");
     if (!auth?.startsWith("Bearer ")) throw new Error("Missing authentication");
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -24,13 +30,16 @@ Deno.serve(async (request) => {
     if (operation === "chat" && (typeof body.message !== "string" || body.message.length < 1 || body.message.length > 8000)) {
       return new Response(JSON.stringify({ detail: "Invalid message" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const upstream = await fetch(`${agentUrl}/${operation === "start_session" ? "session/start" : "chat"}`, {
+    const upstream = await fetch(
+      `${agentUrl.replace(/\/$/, "")}/${operation === "start_session" ? "session/start" : "chat"}`,
+      {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-edge-secret": edgeSecret, "x-correlation-id": crypto.randomUUID() },
       body: JSON.stringify(operation === "start_session"
         ? { user_id: user.id }
         : { session_id: body.session_id, message: body.message }),
-    });
+      },
+    );
     return new Response(await upstream.text(), { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("agent_gateway_error", error);
