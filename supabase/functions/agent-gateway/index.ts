@@ -24,20 +24,28 @@ Deno.serve(async (request) => {
     if (limitError || allowed === false) return new Response(JSON.stringify({ detail: "Rate limit exceeded" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     const body = await request.json();
     const operation = body.operation ?? "chat";
+    if (!new Set(["chat", "start_session", "realtime_session"]).has(operation)) {
+      return new Response(JSON.stringify({ detail: "Invalid operation" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     if (operation === "start_session" && typeof body.user_id !== "string") {
       return new Response(JSON.stringify({ detail: "Invalid user_id" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     if (operation === "chat" && (typeof body.message !== "string" || body.message.length < 1 || body.message.length > 8000)) {
       return new Response(JSON.stringify({ detail: "Invalid message" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+    if (operation === "realtime_session" && typeof body.session_id !== "string") {
+      return new Response(JSON.stringify({ detail: "Invalid session_id" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     const upstream = await fetch(
-      `${agentUrl.replace(/\/$/, "")}/${operation === "start_session" ? "session/start" : "chat"}`,
+      `${agentUrl.replace(/\/$/, "")}/${operation === "start_session" ? "session/start" : operation === "realtime_session" ? "realtime/session" : "chat"}`,
       {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-edge-secret": edgeSecret, "x-correlation-id": crypto.randomUUID() },
       body: JSON.stringify(operation === "start_session"
         ? { user_id: user.id }
-        : { session_id: body.session_id, message: body.message }),
+        : operation === "realtime_session"
+          ? { session_id: body.session_id }
+          : { session_id: body.session_id, message: body.message }),
       },
     );
     return new Response(await upstream.text(), { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });

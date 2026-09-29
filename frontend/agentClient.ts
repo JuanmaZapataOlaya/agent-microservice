@@ -22,6 +22,19 @@ export async function sendMessage(sessionId: string, message: string) {
   };
 }
 
+export async function createRealtimeSession(sessionId: string) {
+  const { data, error } = await supabase.functions.invoke("agent-gateway", {
+    body: { session_id: sessionId, operation: "realtime_session" },
+  });
+  if (error) throw error;
+  return data as {
+    session_id: string;
+    model: "gpt-realtime-2.1-mini";
+    client_secret: { value: string; expires_at: number };
+    tools: Array<Record<string, unknown>>;
+  };
+}
+
 export function executeAction(response: { action: string | null; payload: Record<string, unknown> }) {
   switch (response.action) {
     case "FIND_PET":

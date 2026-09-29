@@ -38,6 +38,17 @@ class ChatResponse(ActionResponse):
     correlation_id: str
 
 
+class RealtimeSessionRequest(BaseModel):
+    session_id: UUID
+
+
+class RealtimeSessionResponse(BaseModel):
+    session_id: UUID
+    model: str
+    client_secret: dict[str, Any]
+    tools: list[dict[str, Any]]
+
+
 class ActionPlan(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

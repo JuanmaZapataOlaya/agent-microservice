@@ -29,6 +29,7 @@ Completa `.env` con los valores de tu proyecto:
 BASE_URL=url de portkey
 PORTKEY_API_KEY=tu_api_key_de_portkey
 PORTKEY_MODEL=@dsvertex/gemini-3.5-flash-lite
+PORTKEY_REALTIME_MODEL=gpt-realtime-2.1-mini
 SUPABASE_URL=https://tu-proyecto.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
 EDGE_SHARED_SECRET=un_secreto_largo_para_pruebas
@@ -36,6 +37,8 @@ INGEST_API_KEY=otra_clave_larga_para_pruebas
 ```
 
 Conserva el resto de valores de `.env.example` salvo que necesites ajustarlos. Las variables `SUPABASE_SERVICE_ROLE_KEY`, `EDGE_SHARED_SECRET` e `INGEST_API_KEY` son privadas: no las expongas en el frontend ni las subas al repositorio.
+
+El flujo de voz usa `createRealtimeSession(sessionId)` desde `frontend/agentClient.ts`. La función llama a la Edge Function `agent-gateway`, que valida la sesión y devuelve un secreto efímero de Portkey junto con las tools `FIND_PET`, `REPORT_PET` y `RUN_TUTORIAL`. La UI puede usar ese secreto para establecer su conexión WebRTC realtime; las claves de Portkey no salen del backend.
 
 ### 3. Preparar la base de datos
 
