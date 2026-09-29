@@ -11,6 +11,35 @@ class ProviderSettings:
     portkey_model = "main-model"
 
 
+class FakeAsyncResponse:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self.payload
+
+
+class FakeAsyncClient:
+    response = FakeAsyncResponse({"client_secret": {"value": "ephemeral"}})
+    request = None
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return None
+
+    async def post(self, url, **kwargs):
+        self.request = (url, kwargs)
+        return self.response
+
+
 @pytest.mark.asyncio
 async def test_guardrail_uses_completion_token_parameter() -> None:
     provider = PortkeyProvider(ProviderSettings())
@@ -46,3 +75,23 @@ async def test_main_agent_keeps_max_tokens_parameter() -> None:
     kwargs = create.call_args.kwargs
     assert kwargs["max_tokens"] == 1200
     assert "max_completion_tokens" not in kwargs
+
+
+@pytest.mark.asyncio
+async def test_realtime_session_uses_configured_model_and_tools(monkeypatch) -> None:
+    fake_client = FakeAsyncClient()
+    monkeypatch.setattr("app.providers.portkey_provider.httpx.AsyncClient", lambda **kwargs: fake_client)
+    provider = PortkeyProvider(ProviderSettings())
+
+    result = await provider.create_realtime_session(
+        model="gpt-realtime-2.1-mini",
+        instructions="voice instructions",
+        tools=[{"type": "function", "name": "FIND_PET"}],
+    )
+
+    url, request = fake_client.request
+    assert url == "https://portkey.example/realtime/client_secrets"
+    assert request["headers"] == {"x-portkey-api-key": "test-key"}
+    assert request["json"]["session"]["model"] == "gpt-realtime-2.1-mini"
+    assert request["json"]["session"]["tools"][0]["name"] == "FIND_PET"
+    assert result["client_secret"]["value"] == "ephemeral"

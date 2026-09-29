@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Sequence
 from typing import Any
 
+import httpx
 from portkey_ai import Portkey
 
 from app.core.config import Settings
@@ -51,3 +52,24 @@ class PortkeyProvider(LLMProvider):
             encoding_format="float",
         )
         return list(response.data[0].embedding)
+
+    async def create_realtime_session(
+        self, *, model: str, instructions: str, tools: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        response_url = f"{self._settings.base_url.rstrip('/')}/realtime/client_secrets"
+        payload = {
+            "session": {
+                "type": "realtime",
+                "model": model,
+                "instructions": instructions,
+                "tools": tools,
+            }
+        }
+        async with httpx.AsyncClient(timeout=20) as client:
+            response = await client.post(
+                response_url,
+                headers={"x-portkey-api-key": self._settings.portkey_api_key},
+                json=payload,
+            )
+        response.raise_for_status()
+        return response.json()
