@@ -8,7 +8,10 @@ class Settings(BaseSettings):
     base_url: str
     portkey_api_key: str
     portkey_model: str
-    portkey_realtime_model: str 
+    portkey_realtime_model: str
+    realtime_transcription_model: str = "whisper-1"
+    realtime_max_session_seconds: int = Field(default=900, ge=30)
+    agent_public_url: str | None = None
     portkey_model_guardrail: str
     supabase_url: str
     supabase_service_role_key: str

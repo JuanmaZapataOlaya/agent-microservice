@@ -30,9 +30,8 @@ export async function createRealtimeSession(sessionId: string) {
   return data as {
     session_id: string;
     model: string;
-    ws_url?: string;
-    client_secret?: { value: string; expires_at: number };
-    tools: Array<Record<string, unknown>>;
+    ws_url: string;
+    expires_in: number;
   };
 }
 

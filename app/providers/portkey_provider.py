@@ -1,8 +1,8 @@
 import asyncio
 from collections.abc import Sequence
 from typing import Any
+from urllib.parse import urlencode
 
-import httpx
 from portkey_ai import Portkey
 
 from app.core.config import Settings
@@ -53,22 +53,12 @@ class PortkeyProvider(LLMProvider):
         )
         return list(response.data[0].embedding)
 
-    async def create_realtime_session(
-        self, *, model: str, instructions: str, tools: list[dict[str, Any]]
-    ) -> dict[str, Any]:
-        ws_base = (
-            self._settings.base_url.rstrip("/")
-            .replace("https://", "wss://")
-            .replace("http://", "ws://")
-        )
-        ws_url = f"{ws_base}/realtime?model={model}"
-        return {
-            "model": model,
-            "ws_url": ws_url,
-            "instructions": instructions,
-            "tools": tools,
-            "client_secret": {
-                "value": self._settings.portkey_api_key,
-                "expires_at": 0,
-            },
-        }
+    def realtime_connection(self, model: str) -> tuple[str, dict[str, str]]:
+        """Return the upstream Portkey WebSocket URL and auth headers (server-side only)."""
+        base = self._settings.base_url.rstrip("/")
+        if base.startswith("https://"):
+            base = "wss://" + base.removeprefix("https://")
+        elif base.startswith("http://"):
+            base = "ws://" + base.removeprefix("http://")
+        url = f"{base}/realtime?{urlencode({'model': model})}"
+        return url, {"x-portkey-api-key": self._settings.portkey_api_key}
