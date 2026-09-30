@@ -89,7 +89,7 @@ async def classify_intent(
 ) -> GuardrailDecision:
     conversation = ""
     if history:
-        recent = history[-6:]
+        recent = history[-10:]
         conversation = "\n".join(
             f"{item.get('role', 'unknown')}: {item.get('content', '')}"
             for item in recent
