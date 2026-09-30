@@ -26,6 +26,16 @@ class SupabaseRepository:
     async def end_session(self, session_id: UUID) -> None:
         await self.client.table("chat_sessions").delete().eq("id", str(session_id)).execute()
 
+    async def get_session_state(self, session_id: UUID) -> dict[str, Any]:
+        result = await self.client.table("chat_sessions").select("state").eq("id", str(session_id)).maybe_single().execute()
+        if result.data and result.data.get("state"):
+            state = result.data.get("state")
+            return state if isinstance(state, dict) else {}
+        return {}
+
+    async def update_session_state(self, session_id: UUID, state: dict[str, Any]) -> None:
+        await self.client.table("chat_sessions").update({"state": state}).eq("id", str(session_id)).execute()
+
     async def history(self, session_id: UUID, limit: int = 20) -> list[dict[str, Any]]:
         result = await self.client.table("chat_messages").select("role,content").eq(
             "session_id", str(session_id)

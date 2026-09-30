@@ -38,7 +38,9 @@ INGEST_API_KEY=otra_clave_larga_para_pruebas
 
 Conserva el resto de valores de `.env.example` salvo que necesites ajustarlos. Las variables `SUPABASE_SERVICE_ROLE_KEY`, `EDGE_SHARED_SECRET` e `INGEST_API_KEY` son privadas: no las expongas en el frontend ni las subas al repositorio.
 
-El flujo de voz usa `createRealtimeSession(sessionId)` desde `frontend/agentClient.ts`. La función llama a la Edge Function `agent-gateway`, que valida la sesión y devuelve un secreto efímero de Portkey junto con las tools `FIND_PET`, `REPORT_PET` y `RUN_TUTORIAL`. La UI puede usar ese secreto para establecer su conexión WebRTC realtime; las claves de Portkey no salen del backend.
+El flujo de voz usa `createRealtimeSession(sessionId)` desde `frontend/agentClient.ts`. La función llama a la Edge Function `agent-gateway`, que valida la sesión y pide al servicio un ticket de un solo uso (válido 60 s). La respuesta incluye `ws_url` (`wss://<servicio>/realtime/ws?ticket=...`): el navegador abre ese WebSocket contra este servicio, que a su vez se conecta a Portkey (`PORTKEY_REALTIME_MODEL`) con la API key del lado del servidor, fija las instrucciones y las tools `FIND_PET`, `REPORT_PET` y `RUN_TUTORIAL`, y retransmite los eventos. La conversación es audio a audio (sin transcripción): si el usuario habla mientras el asistente responde, el modelo se interrumpe y el cliente corta la reproducción. La API key de Portkey nunca sale del backend y el cliente no puede cambiar instrucciones ni tools (`session.update` del cliente se descarta).
+
+Variables opcionales de voz: `REALTIME_TURN_DETECTION` (`server_vad` por defecto, o `semantic_vad` para turnos más naturales si el despliegue de Azure lo soporta), `REALTIME_MAX_SESSION_SECONDS` (por defecto `900`) y `AGENT_PUBLIC_URL` (URL pública del servicio; si no se define se deriva de las cabeceras `Host`/`X-Forwarded-*`). Los tickets viven en memoria, por lo que el servicio debe ejecutarse con un solo worker.
 
 ### 3. Preparar la base de datos
 

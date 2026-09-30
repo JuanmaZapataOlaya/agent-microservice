@@ -45,8 +45,8 @@ class RealtimeSessionRequest(BaseModel):
 class RealtimeSessionResponse(BaseModel):
     session_id: UUID
     model: str
-    client_secret: dict[str, Any]
-    tools: list[dict[str, Any]]
+    ws_url: str
+    expires_in: int
 
 
 class ActionPlan(BaseModel):

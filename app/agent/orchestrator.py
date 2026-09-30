@@ -62,6 +62,7 @@ class AgentOrchestrator:
             )
             return guardrail.response or "", None, {}
 
+        current_state = await self.repository.get_session_state(session_id)
         embedding = await self.provider.embed(retrieval_query(cleaned_question))
         chunks = await self.repository.search_chunks(embedding, self.top_k, self.threshold)
         if not chunks and self.threshold > 0:
@@ -70,8 +71,17 @@ class AgentOrchestrator:
             )
         if not chunks:
             chunks = await self.repository.search_chunks(embedding, self.top_k, 0)
-        messages = build_messages(history, cleaned_question, chunks)
+        messages = build_messages(history, cleaned_question, chunks, current_state)
         plan = await self._parse_agent_plan(messages)
+        
+        # Persist updated state if draft is present in payload
+        if isinstance(plan.payload, dict):
+            if "draft" in plan.payload:
+                new_state = {**current_state, **plan.payload.get("draft", {})}
+                await self.repository.update_session_state(session_id, new_state)
+            elif plan.action in {"FIND_PET", "REPORT_PET"}:
+                await self.repository.update_session_state(session_id, plan.payload)
+
         await self.repository.add_message(session_id, "user", question)
         await self.repository.add_message(session_id, "assistant", plan.model_dump_json())
         return plan.message, plan.action, plan.payload

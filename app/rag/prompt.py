@@ -73,13 +73,18 @@ Use action null and payload {} for greetings, explanations, general questions, c
 or any response that does not start one of those frontend flows. Never use another action."""
 
 
-def build_messages(history: list[dict], question: str, chunks: list[dict]) -> list[dict[str, str]]:
+def build_messages(history: list[dict], question: str, chunks: list[dict], current_state: dict) -> list[dict[str, str]]:
     context = "\n\n".join(
         f"[{item.get('document_name', 'unknown')}]\n{item.get('chunk_text', '')}" for item in chunks
     )
     messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend({"role": item["role"], "content": item["content"]} for item in history)
     messages.append({"role": "user", "content": json.dumps(
-        {"knowledge": context, "question": question}, ensure_ascii=False
+        {
+            "knowledge": context,
+            "current_session_state": current_state,
+            "question": question,
+        },
+        ensure_ascii=False,
     )})
     return messages

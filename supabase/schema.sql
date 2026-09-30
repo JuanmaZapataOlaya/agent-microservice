@@ -12,6 +12,7 @@ create index if not exists knowledge_chunks_embedding_idx
 
 create table if not exists chat_sessions (
   id uuid primary key default gen_random_uuid(), user_id text not null,
+  state jsonb not null default '{}',
   created_at timestamptz not null default now(), expires_at timestamptz not null
 );
 create index if not exists chat_sessions_expiry_idx on chat_sessions(expires_at);

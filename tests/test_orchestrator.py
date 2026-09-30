@@ -15,6 +15,12 @@ class FakeRepository:
     async def history(self, session_id):
         return []
 
+    async def get_session_state(self, session_id):
+        return {}
+
+    async def update_session_state(self, session_id, state):
+        pass
+
     async def search_chunks(self, embedding, top_k, threshold):
         self.search_calls.append((top_k, threshold))
         return self.chunks if len(self.search_calls) == 2 else []
