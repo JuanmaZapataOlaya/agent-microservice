@@ -53,13 +53,11 @@ def build_router(
                 instructions=REALTIME_INSTRUCTIONS,
                 tools=REALTIME_TOOLS,
             )
-            client_secret = session.get("client_secret")
-            if not isinstance(client_secret, dict):
-                raise HTTPException(status_code=502, detail="Invalid realtime provider response")
             return RealtimeSessionResponse(
                 session_id=request.session_id,
                 model=realtime_model,
-                client_secret=client_secret,
+                ws_url=session.get("ws_url"),
+                client_secret=session.get("client_secret", {}),
                 tools=REALTIME_TOOLS,
             )
         except ValueError as exc:

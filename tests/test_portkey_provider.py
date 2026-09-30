@@ -78,20 +78,16 @@ async def test_main_agent_keeps_max_tokens_parameter() -> None:
 
 
 @pytest.mark.asyncio
-async def test_realtime_session_uses_configured_model_and_tools(monkeypatch) -> None:
-    fake_client = FakeAsyncClient()
-    monkeypatch.setattr("app.providers.portkey_provider.httpx.AsyncClient", lambda **kwargs: fake_client)
+async def test_realtime_session_uses_configured_model_and_tools() -> None:
     provider = PortkeyProvider(ProviderSettings())
 
     result = await provider.create_realtime_session(
-        model="gpt-realtime-2.1-mini",
+        model="@azure-openai-eus2/gpt-realtime-2.1-mini",
         instructions="voice instructions",
         tools=[{"type": "function", "name": "FIND_PET"}],
     )
 
-    url, request = fake_client.request
-    assert url == "https://portkey.example/realtime/client_secrets"
-    assert request["headers"] == {"x-portkey-api-key": "test-key"}
-    assert request["json"]["session"]["model"] == "gpt-realtime-2.1-mini"
-    assert request["json"]["session"]["tools"][0]["name"] == "FIND_PET"
-    assert result["client_secret"]["value"] == "ephemeral"
+    assert result["model"] == "@azure-openai-eus2/gpt-realtime-2.1-mini"
+    assert result["ws_url"] == "ws://portkey.example/realtime?model=@azure-openai-eus2/gpt-realtime-2.1-mini"
+    assert result["tools"][0]["name"] == "FIND_PET"
+    assert result["instructions"] == "voice instructions"

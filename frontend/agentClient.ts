@@ -29,8 +29,9 @@ export async function createRealtimeSession(sessionId: string) {
   if (error) throw error;
   return data as {
     session_id: string;
-    model: "gpt-realtime-2.1-mini";
-    client_secret: { value: string; expires_at: number };
+    model: string;
+    ws_url?: string;
+    client_secret?: { value: string; expires_at: number };
     tools: Array<Record<string, unknown>>;
   };
 }
