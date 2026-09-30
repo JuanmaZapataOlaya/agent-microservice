@@ -104,7 +104,7 @@ def build_router(
                 upstream_headers,
                 partial(
                     build_session_update,
-                    transcription_model=settings.realtime_transcription_model,
+                    turn_detection=settings.realtime_turn_detection,
                 ),
                 settings.realtime_max_session_seconds,
             )

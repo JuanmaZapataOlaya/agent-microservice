@@ -19,6 +19,7 @@ ALLOWED_CLIENT_EVENTS = frozenset({
     "input_audio_buffer.commit",
     "input_audio_buffer.clear",
     "conversation.item.create",
+    "conversation.item.truncate",
     "response.create",
     "response.cancel",
 })

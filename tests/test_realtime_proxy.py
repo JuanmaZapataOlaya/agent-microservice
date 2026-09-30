@@ -30,19 +30,23 @@ def test_expired_ticket_is_rejected() -> None:
 
 
 def test_session_update_uses_ga_shape_for_ga_sessions() -> None:
-    update = build_session_update({"type": "realtime", "audio": {}}, "whisper-1")
+    update = build_session_update({"type": "realtime", "audio": {}}, "server_vad")
 
-    assert update["session"]["type"] == "realtime"
-    assert update["session"]["audio"]["input"]["transcription"] == {"model": "whisper-1"}
-    assert update["session"]["tools"] == REALTIME_TOOLS
-    assert "input_audio_transcription" not in update["session"]
+    session = update["session"]
+    assert session["type"] == "realtime"
+    assert session["tools"] == REALTIME_TOOLS
+    turn = session["audio"]["input"]["turn_detection"]
+    assert turn["type"] == "server_vad"
+    assert turn["interrupt_response"] is True
+    assert "transcription" not in session["audio"]["input"]
 
 
 def test_session_update_uses_beta_shape_for_beta_sessions() -> None:
-    update = build_session_update({"modalities": ["audio", "text"]}, "whisper-1")
+    update = build_session_update({"modalities": ["audio", "text"]}, "semantic_vad")
 
     assert "type" not in update["session"]
-    assert update["session"]["input_audio_transcription"] == {"model": "whisper-1"}
+    assert update["session"]["turn_detection"]["type"] == "semantic_vad"
+    assert "input_audio_transcription" not in update["session"]
     assert update["session"]["instructions"]
 
 
@@ -99,7 +103,7 @@ def realtime_app(monkeypatch):
     monkeypatch.setattr(routes, "PortkeyProvider", FakeProvider)
     settings = SimpleNamespace(
         portkey_realtime_model="gpt-realtime-test",
-        realtime_transcription_model="whisper-1",
+        realtime_turn_detection="server_vad",
         realtime_max_session_seconds=30,
         agent_public_url=None,
     )
