@@ -45,7 +45,8 @@ class RealtimeSessionRequest(BaseModel):
 class RealtimeSessionResponse(BaseModel):
     session_id: UUID
     model: str
-    client_secret: dict[str, Any]
+    ws_url: str | None = None
+    client_secret: dict[str, Any] = Field(default_factory=dict)
     tools: list[dict[str, Any]]
 
 

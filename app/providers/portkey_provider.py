@@ -56,20 +56,19 @@ class PortkeyProvider(LLMProvider):
     async def create_realtime_session(
         self, *, model: str, instructions: str, tools: list[dict[str, Any]]
     ) -> dict[str, Any]:
-        response_url = f"{self._settings.base_url.rstrip('/')}/realtime/client_secrets"
-        payload = {
-            "session": {
-                "type": "realtime",
-                "model": model,
-                "instructions": instructions,
-                "tools": tools,
-            }
+        ws_base = (
+            self._settings.base_url.rstrip("/")
+            .replace("https://", "wss://")
+            .replace("http://", "ws://")
+        )
+        ws_url = f"{ws_base}/realtime?model={model}"
+        return {
+            "model": model,
+            "ws_url": ws_url,
+            "instructions": instructions,
+            "tools": tools,
+            "client_secret": {
+                "value": self._settings.portkey_api_key,
+                "expires_at": 0,
+            },
         }
-        async with httpx.AsyncClient(timeout=20) as client:
-            response = await client.post(
-                response_url,
-                headers={"x-portkey-api-key": self._settings.portkey_api_key},
-                json=payload,
-            )
-        response.raise_for_status()
-        return response.json()
