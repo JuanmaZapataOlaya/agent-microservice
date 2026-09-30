@@ -56,7 +56,7 @@ async def register_routes() -> None:
         settings.portkey_model_guardrail,
     )
     ingestion = IngestionPipeline(repository, provider, settings.chunk_size, settings.chunk_overlap)
-    app.include_router(build_router(sessions, agent, ingestion, settings.portkey_realtime_model))
+    app.include_router(build_router(sessions, agent, ingestion, settings))
 
 
 @app.exception_handler(Exception)

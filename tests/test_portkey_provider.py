@@ -11,35 +11,6 @@ class ProviderSettings:
     portkey_model = "main-model"
 
 
-class FakeAsyncResponse:
-    def __init__(self, payload):
-        self.payload = payload
-
-    def raise_for_status(self):
-        return None
-
-    def json(self):
-        return self.payload
-
-
-class FakeAsyncClient:
-    response = FakeAsyncResponse({"client_secret": {"value": "ephemeral"}})
-    request = None
-
-    def __init__(self, **kwargs):
-        self.kwargs = kwargs
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        return None
-
-    async def post(self, url, **kwargs):
-        self.request = (url, kwargs)
-        return self.response
-
-
 @pytest.mark.asyncio
 async def test_guardrail_uses_completion_token_parameter() -> None:
     provider = PortkeyProvider(ProviderSettings())
@@ -77,17 +48,10 @@ async def test_main_agent_keeps_max_tokens_parameter() -> None:
     assert "max_completion_tokens" not in kwargs
 
 
-@pytest.mark.asyncio
-async def test_realtime_session_uses_configured_model_and_tools() -> None:
+def test_realtime_connection_keeps_api_key_server_side() -> None:
     provider = PortkeyProvider(ProviderSettings())
 
-    result = await provider.create_realtime_session(
-        model="@azure-openai-eus2/gpt-realtime-2.1-mini",
-        instructions="voice instructions",
-        tools=[{"type": "function", "name": "FIND_PET"}],
-    )
+    url, headers = provider.realtime_connection("@azure-openai-eus2/gpt-realtime-2.1-mini")
 
-    assert result["model"] == "@azure-openai-eus2/gpt-realtime-2.1-mini"
-    assert result["ws_url"] == "ws://portkey.example/realtime?model=@azure-openai-eus2/gpt-realtime-2.1-mini"
-    assert result["tools"][0]["name"] == "FIND_PET"
-    assert result["instructions"] == "voice instructions"
+    assert url == "wss://portkey.example/realtime?model=%40azure-openai-eus2%2Fgpt-realtime-2.1-mini"
+    assert headers == {"x-portkey-api-key": "test-key"}

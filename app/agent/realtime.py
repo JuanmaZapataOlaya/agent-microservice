@@ -54,3 +54,28 @@ REALTIME_INSTRUCTIONS = (
     "Cuando corresponda, usa exactamente una de las tools disponibles; el cliente "
     "ejecutará la acción y te comunicará su resultado."
 )
+
+
+def build_session_update(session: dict[str, Any], transcription_model: str) -> dict[str, Any]:
+    """Build the server-side ``session.update`` matching the upstream API shape.
+
+    GA realtime models (``gpt-realtime*``) report ``type: realtime`` and nest audio
+    settings under ``audio``; the beta API uses flat ``input_audio_*`` fields.
+    """
+    config: dict[str, Any] = {
+        "instructions": REALTIME_INSTRUCTIONS,
+        "tools": REALTIME_TOOLS,
+        "tool_choice": "auto",
+    }
+    if session.get("type") == "realtime" or "audio" in session:
+        config["type"] = "realtime"
+        config["audio"] = {
+            "input": {
+                "transcription": {"model": transcription_model},
+                "turn_detection": {"type": "server_vad"},
+            }
+        }
+    else:
+        config["input_audio_transcription"] = {"model": transcription_model}
+        config["turn_detection"] = {"type": "server_vad"}
+    return {"type": "session.update", "session": config}
