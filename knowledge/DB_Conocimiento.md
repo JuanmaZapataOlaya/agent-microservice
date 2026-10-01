@@ -97,7 +97,13 @@ R: Se solicitan dos imágenes como evidencia para demostrar la autenticidad del 
 **P: ¿Qué ocurre si el Agente de IA detecta que una foto enviada es falsa o sacada de internet?**  
 R: El sistema notificará al receptor del reporte incluyendo una alerta o consejo donde le advertirá sobre la falta de credibilidad de la imagen, sugiriendo que tome precauciones antes de entregar la mascota.
 
-**P: ¿Cómo funciona la búsqueda para encontrar a mi mascota?**  
+**P: ¿Qué especies y razas reconoce el sistema?**  
+R: El sistema reconoce las siguientes especies y razas principales para el registro y búsqueda de mascotas:
+- 🐕 **Perro:** Mestizo, Labrador Retriever, Golden Retriever, Pastor Alemán, Border Collie, Chihuahua, Poodle, Bulldog Francés, Husky Siberiano, Beagle.
+- 🐈 **Gato:** Europeo común, Siamés, Persa, Maine Coon, Bengalí, Ragdoll, Azul ruso, British Shorthair, Angora, Sphynx.
+- 🦜 **Ave:** Canario, Periquito, Cacatúa, Agapornis, Loro, Ninfa, Diamante mandarín.
+- 🐾 **Otro:** Conejo, Hámster, Cobaya, Hurón, Tortuga, Otro.
+Cuando el usuario menciona una de estas razas (por ejemplo, Golden Retriever), el sistema reconoce automáticamente que es un perro (`DOG`), evitando preguntar la especie de forma innecesaria.  
 R: Puedes usar filtros por rango de distancia geográfica, o realizar búsquedas híbridas que combinan coincidencias exactas de texto con búsqueda semántica basada en el significado de la descripción de la mascota.
 
 **P: ¿Qué es el Historial de Mascotas y para qué sirve?**  
