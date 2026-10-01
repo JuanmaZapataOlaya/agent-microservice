@@ -11,6 +11,8 @@ REALTIME_TOOLS: list[dict[str, Any]] = [
         "parameters": {
             "type": "object",
             "properties": {
+                "type": {"type": "string", "enum": ["LOST", "FOUND"],
+                         "description": "Si busca mascotas perdidas o encontradas. Omítelo si no lo dijo."},
                 "kind": {"type": "string", "enum": ["DOG", "CAT", "OTHER"]},
                 "query_description": {"type": "string"},
                 "location": {"type": "string"},
@@ -42,6 +44,70 @@ REALTIME_TOOLS: list[dict[str, Any]] = [
         "description": "Abre el tutorial guiado de funcionalidades de la aplicación.",
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
     },
+    {
+        "type": "function",
+        "name": "NAVIGATE",
+        "description": "Lleva al usuario a una sección de la aplicación.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "section": {
+                    "type": "string",
+                    "enum": ["SUMMARY", "EXPLORE", "MATCHES", "MY_REPORTS",
+                             "NOTIFICATIONS", "PET_HISTORY", "PERSONAL_INFO"],
+                },
+            },
+            "required": ["section"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "SCROLL",
+        "description": "Desplaza la página actual hacia arriba, abajo, al inicio o al final.",
+        "parameters": {
+            "type": "object",
+            "properties": {"direction": {"type": "string", "enum": ["UP", "DOWN", "TOP", "BOTTOM"]}},
+            "required": ["direction"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "OPEN_MODAL",
+        "description": "Abre una ventana: el formulario vacío para reportar una mascota o la "
+                       "confirmación del tutorial.",
+        "parameters": {
+            "type": "object",
+            "properties": {"modal": {"type": "string", "enum": ["REPORT_FORM", "TUTORIAL"]}},
+            "required": ["modal"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "type": "function",
+        "name": "CLOSE_MODAL",
+        "description": "Cierra la ventana o diálogo que esté abierto en pantalla.",
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "type": "function",
+        "name": "MANAGE_NOTIFICATION",
+        "description": "Consulta o gestiona las notificaciones del usuario. Usa LIST para conocerlas "
+                       "antes de actuar sobre una. position es la posición (desde 1) en esa lista. "
+                       "REPORT abre el formulario de reporte; reason lo rellena si el usuario dio un motivo.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string",
+                           "enum": ["LIST", "MARK_READ", "MARK_UNREAD", "FINALIZE", "REPORT"]},
+                "position": {"type": "integer", "minimum": 1},
+                "reason": {"type": "string"},
+            },
+            "required": ["action"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 
@@ -52,7 +118,9 @@ REALTIME_INSTRUCTIONS = (
     "En este modo, ignora la instrucción de devolver un objeto JSON: responde "
     "directamente con texto hablado y usa las tools para las acciones. "
     "Cuando corresponda, usa exactamente una de las tools disponibles; el cliente "
-    "ejecutará la acción y te comunicará su resultado. Si el usuario te interrumpe, "
+    "ejecutará la acción y te comunicará su resultado; si el resultado indica un error, "
+    "explícaselo al usuario en pocas palabras. Antes de marcar como finalizada una "
+    "notificación, confirma con el usuario porque la quita de la lista. Si el usuario te interrumpe, "
     "no retomes lo que estabas diciendo: atiende su nueva petición."
 )
 
