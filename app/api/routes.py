@@ -97,6 +97,12 @@ def build_router(
         upstream_url, upstream_headers = agent.provider.realtime_connection(
             settings.portkey_realtime_model
         )
+
+        safe_headers = {
+            k: ("***" if "key" in k.lower() or "auth" in k.lower() else v)
+            for k, v in upstream_headers.items()
+        }
+        logger.info("realtime_upstream url=%s headers=%s", upstream_url, safe_headers)
         try:
             await proxy_realtime(
                 websocket,
