@@ -1,4 +1,5 @@
 import logging
+import os
 from functools import partial
 from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, WebSocket
@@ -15,6 +16,8 @@ from app.ingest.ingestion_pipeline import IngestionPipeline
 
 logger = logging.getLogger("agent.realtime")
 
+AZURE_API_VERSION_OVERRIDE = os.getenv("PORTKEY_AZURE_API_VERSION", "").strip()
+
 
 def _public_ws_base(request: Request, public_url: str | None) -> str:
     if public_url:
@@ -28,6 +31,13 @@ def _public_ws_base(request: Request, public_url: str | None) -> str:
     if base.startswith("http://"):
         return "ws://" + base.removeprefix("http://")
     return base
+
+
+def _mask_headers(headers: dict[str, str]) -> dict[str, str]:
+    return {
+        k: ("***" if "key" in k.lower() or "auth" in k.lower() else v)
+        for k, v in headers.items()
+    }
 
 
 def build_router(
@@ -97,12 +107,16 @@ def build_router(
         upstream_url, upstream_headers = agent.provider.realtime_connection(
             settings.portkey_realtime_model
         )
+        upstream_headers = dict(upstream_headers)
+        if AZURE_API_VERSION_OVERRIDE:
+            upstream_headers["x-portkey-azure-api-version"] = AZURE_API_VERSION_OVERRIDE
 
-        safe_headers = {
-            k: ("***" if "key" in k.lower() or "auth" in k.lower() else v)
-            for k, v in upstream_headers.items()
-        }
-        logger.info("realtime_upstream url=%s headers=%s", upstream_url, safe_headers)
+        logger.info(
+            "realtime_upstream session=%s url=%s headers=%s",
+            session_id,
+            upstream_url,
+            _mask_headers(upstream_headers),
+        )
         try:
             await proxy_realtime(
                 websocket,
