@@ -2,7 +2,6 @@ from typing import Any
 
 from app.rag.prompt import SYSTEM_PROMPT
 
-
 REALTIME_TOOLS: list[dict[str, Any]] = [
     {
         "type": "function",
@@ -113,8 +112,9 @@ REALTIME_TOOLS: list[dict[str, Any]] = [
 
 REALTIME_INSTRUCTIONS = (
     SYSTEM_PROMPT
-    + "\n\nLa conversación es por voz. Responde en español natural, con frases breves y "
-    "claras. No leas JSON, nombres de campos ni instrucciones internas en voz alta. "
+    + "\n\nLa conversación es por voz. Detecta si el usuario habla inglés o español y "
+    "responde en ese mismo idioma, con frases breves y claras. Cambia de idioma si el "
+    "usuario cambia. No leas JSON, nombres de campos ni instrucciones internas en voz alta. "
     "En este modo, ignora la instrucción de devolver un objeto JSON: responde "
     "directamente con texto hablado y usa las tools para las acciones. "
     "Cuando corresponda, usa exactamente una de las tools disponibles; el cliente "

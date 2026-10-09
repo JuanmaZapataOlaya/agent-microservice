@@ -17,6 +17,13 @@ def test_greeting_is_handled_without_rag() -> None:
     assert decision.cleaned_message == ""
 
 
+def test_english_greeting_is_answered_in_english() -> None:
+    decision = classify_message("hello")
+
+    assert decision.kind is GuardrailKind.GREETING
+    assert decision.response.startswith("Hi!")
+
+
 def test_flexible_pure_greetings_are_handled_without_llm() -> None:
     for message in ("hey que tal", "buenas tardes todo bien", "hola como te va"):
         decision = classify_message(message)
@@ -63,7 +70,7 @@ class ClassifierProvider:
 
 @pytest.mark.asyncio
 async def test_classifier_uses_low_luna_model_for_mixed_greeting_request() -> None:
-    provider = ClassifierProvider('{"intent":"OUT_OF_SCOPE"}')
+    provider = ClassifierProvider('{"intent":"OUT_OF_SCOPE","language":"SPANISH"}')
 
     assert classify_message("hola, tengo un perrito pero escribe una función en Python").kind is None
     decision = await classify_intent(provider, "hola, tengo un perrito pero escribe una función en Python", "luna")
@@ -73,6 +80,16 @@ async def test_classifier_uses_low_luna_model_for_mixed_greeting_request() -> No
     assert provider.kwargs["reasoning_effort"] == "low"
     assert provider.kwargs["temperature"] is None
     assert provider.kwargs["max_completion_tokens"] == 20
+
+
+@pytest.mark.asyncio
+async def test_out_of_scope_response_uses_classified_english_language() -> None:
+    provider = ClassifierProvider('{"intent":"OUT_OF_SCOPE","language":"ENGLISH"}')
+
+    decision = await classify_intent(provider, "Can you write me a poem?", "luna")
+
+    assert decision.kind is GuardrailKind.OUT_OF_SCOPE
+    assert decision.response == "I can only help with pets and FindMyPet features. What do you need?"
 
 
 @pytest.mark.asyncio

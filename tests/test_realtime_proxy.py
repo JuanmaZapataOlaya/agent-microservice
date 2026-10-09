@@ -48,6 +48,7 @@ def test_session_update_uses_beta_shape_for_beta_sessions() -> None:
     assert update["session"]["turn_detection"]["type"] == "semantic_vad"
     assert "input_audio_transcription" not in update["session"]
     assert update["session"]["instructions"]
+    assert "same language" in update["session"]["instructions"]
 
 
 class FakeUpstream:

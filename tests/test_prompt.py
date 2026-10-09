@@ -2,7 +2,9 @@ from app.rag.prompt import SYSTEM_PROMPT
 
 
 def test_prompt_requires_plain_language_for_users() -> None:
-    assert "simple, warm, everyday Spanish" in SYSTEM_PROMPT
+    assert "same language as the user's latest message: English or Spanish" in SYSTEM_PROMPT
+    assert "the language from both typed text and speech/transcription" in SYSTEM_PROMPT
+    assert "Use simple, warm, everyday language in either English or Spanish" in SYSTEM_PROMPT
     assert '"búsqueda semántica"' in SYSTEM_PROMPT
     assert "instead of" in SYSTEM_PROMPT
 

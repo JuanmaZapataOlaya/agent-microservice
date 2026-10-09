@@ -7,6 +7,7 @@ from app.agent.guardrails import (
     GuardrailKind,
     classify_intent,
     classify_message,
+    detect_language,
     retrieval_query,
 )
 from app.models.schemas import ActionPlan
@@ -72,7 +73,7 @@ class AgentOrchestrator:
         if not chunks:
             chunks = await self.repository.search_chunks(embedding, self.top_k, 0)
         messages = build_messages(history, cleaned_question, chunks, current_state)
-        plan = await self._parse_agent_plan(messages)
+        plan = await self._parse_agent_plan(messages, question)
         
         # Persist updated state if draft is present in payload
         if isinstance(plan.payload, dict):
@@ -89,6 +90,7 @@ class AgentOrchestrator:
     async def _parse_agent_plan(
         self,
         messages: list[dict[str, str]],
+        question: str,
     ) -> ActionPlan:
         response = await self.agent.run(
             messages,
@@ -103,10 +105,11 @@ class AgentOrchestrator:
                 {
                     "role": "user",
                     "content": (
-                        "La respuesta anterior no cumplió el contrato. "
-                        "Responde únicamente con un objeto JSON válido con exactamente "
-                        'message, action y payload. Para esta consulta usa action null '
-                        "si faltan datos; no agregues texto fuera del JSON."
+                        "The previous response did not follow the contract. Respond only "
+                        "with a valid JSON object containing exactly "
+                        "message, action, and payload. Use action null "
+                        "if details are missing; add no text outside the JSON. Write the "
+                        "user-facing message in the same language as the user's latest message."
                     ),
                 },
             ]
@@ -120,7 +123,10 @@ class AgentOrchestrator:
                 logger.error("agent_invalid_action_plan_fallback", exc_info=first_error)
                 return ActionPlan(
                     message=(
-                        "No pude procesar la respuesta en este momento. "
+                        "I couldn't process the response right now. Please try again with "
+                        "your pet's details."
+                        if detect_language(question) == "ENGLISH"
+                        else "No pude procesar la respuesta en este momento. "
                         "Puedes intentar de nuevo con los datos de tu mascota."
                     ),
                     action=None,
