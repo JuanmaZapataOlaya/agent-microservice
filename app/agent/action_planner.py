@@ -19,7 +19,7 @@ FIND_PHYSICAL_FIELDS = (
 )
 
 
-def parse_action_plan(content: str) -> ActionPlan:
+def parse_action_plan(content: str, language: str = "SPANISH") -> ActionPlan:
     try:
         raw: Any = json.loads(_extract_json(content))
         raw = _normalize_plan(raw)
@@ -28,18 +28,18 @@ def parse_action_plan(content: str) -> ActionPlan:
         raise ValueError("LLM returned an invalid action plan") from exc
     if plan.action is not None and plan.action not in ALLOWED_ACTIONS:
         raise ValueError("Action is not in the allowlist")
-    return apply_slot_filling(plan)
+    return apply_slot_filling(plan, language)
 
 
-def apply_slot_filling(plan: ActionPlan) -> ActionPlan:
+def apply_slot_filling(plan: ActionPlan, language: str = "SPANISH") -> ActionPlan:
     if plan.action == "FIND_PET":
-        return _validate_find_pet(plan)
+        return _validate_find_pet(plan, language)
     if plan.action == "REPORT_PET":
-        return _validate_report_pet(plan)
+        return _validate_report_pet(plan, language)
     return plan
 
 
-def _validate_find_pet(plan: ActionPlan) -> ActionPlan:
+def _validate_find_pet(plan: ActionPlan, language: str) -> ActionPlan:
     payload = dict(plan.payload)
     missing: list[str] = []
     if payload.get("kind") not in VALID_KINDS:
@@ -52,7 +52,12 @@ def _validate_find_pet(plan: ActionPlan) -> ActionPlan:
             plan,
             payload,
             missing,
-            "¿De qué raza o color es, o tiene alguna marca o accesorio distintivo?",
+            (
+                "What breed or color is your pet, or does it have any distinctive "
+                "markings or accessories?"
+                if language == "ENGLISH"
+                else "¿De qué raza o color es, o tiene alguna marca o accesorio distintivo?"
+            ),
         )
 
     query_description = payload.get("query_description")
@@ -66,12 +71,16 @@ def _validate_find_pet(plan: ActionPlan) -> ActionPlan:
             plan,
             payload,
             ["query_description"],
-            "¿Puedes resumir las características físicas en máximo 10 palabras?",
+            (
+                "Can you summarize the physical details in 10 words or fewer?"
+                if language == "ENGLISH"
+                else "¿Puedes resumir las características físicas en máximo 10 palabras?"
+            ),
         )
     return plan.model_copy(update={"payload": payload})
 
 
-def _validate_report_pet(plan: ActionPlan) -> ActionPlan:
+def _validate_report_pet(plan: ActionPlan, language: str) -> ActionPlan:
     payload = dict(plan.payload)
     missing = [
         field for field in REPORT_REQUIRED_FIELDS
@@ -83,13 +92,23 @@ def _validate_report_pet(plan: ActionPlan) -> ActionPlan:
         missing.append("kind")
     if missing:
         next_field = missing[0]
-        questions = {
-            "type": "¿La mascota está perdida o fue encontrada?",
-            "kind": "¿Qué especie es: perro, gato u otra?",
-            "breed": "¿Cuál es la raza de tu mascota?",
-            "color": "¿De qué color es tu mascota?",
-            "description": "¿Qué otra característica física o distintiva debemos incluir?",
-        }
+        questions = (
+            {
+                "type": "Is the pet lost or found?",
+                "kind": "What kind of pet is it: dog, cat, or another animal?",
+                "breed": "What breed is your pet?",
+                "color": "What color is your pet?",
+                "description": "What other distinctive features should we include?",
+            }
+            if language == "ENGLISH"
+            else {
+                "type": "¿La mascota está perdida o fue encontrada?",
+                "kind": "¿Qué especie es: perro, gato u otra?",
+                "breed": "¿Cuál es la raza de tu mascota?",
+                "color": "¿De qué color es tu mascota?",
+                "description": "¿Qué otra característica física o distintiva debemos incluir?",
+            }
+        )
         return _request_missing(plan, payload, missing, questions[next_field])
     return plan.model_copy(update={"payload": payload})
 

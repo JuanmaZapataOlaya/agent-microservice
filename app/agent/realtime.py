@@ -112,11 +112,11 @@ REALTIME_TOOLS: list[dict[str, Any]] = [
 
 REALTIME_INSTRUCTIONS = (
     SYSTEM_PROMPT
-    + "\n\nLa conversación es por voz. Detecta si el usuario habla inglés o español y "
-    "responde en ese mismo idioma, con frases breves y claras. Cambia de idioma si el "
-    "usuario cambia. No leas JSON, nombres de campos ni instrucciones internas en voz alta. "
-    "En este modo, ignora la instrucción de devolver un objeto JSON: responde "
-    "directamente con texto hablado y usa las tools para las acciones. "
+    + "\n\nThis is a voice conversation. Identify whether the user's latest spoken message "
+    "is in English or Spanish and respond in that same language. Switch languages whenever "
+    "the user does. Keep spoken replies brief and clear. Do not read JSON, field names, or "
+    "internal instructions aloud. Ignore the JSON-output requirement in this voice mode: "
+    "reply directly with spoken text and use the tools for actions. "
     "Cuando corresponda, usa exactamente una de las tools disponibles; el cliente "
     "ejecutará la acción y te comunicará su resultado; si el resultado indica un error, "
     "explícaselo al usuario en pocas palabras. Antes de marcar como finalizada una "

@@ -97,7 +97,7 @@ class AgentOrchestrator:
             response_format={"type": "json_object"},
         )
         try:
-            return parse_action_plan(response.content)
+            return parse_action_plan(response.content, detect_language(question))
         except ValueError as first_error:
             logger.warning("agent_invalid_action_plan_retry")
             repair_messages = [
@@ -118,7 +118,7 @@ class AgentOrchestrator:
                 response_format={"type": "json_object"},
             )
             try:
-                return parse_action_plan(retry.content)
+                return parse_action_plan(retry.content, detect_language(question))
             except ValueError:
                 logger.error("agent_invalid_action_plan_fallback", exc_info=first_error)
                 return ActionPlan(

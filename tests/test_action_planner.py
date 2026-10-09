@@ -71,6 +71,31 @@ def test_report_pet_requires_explicit_breed_and_color_fields() -> None:
     assert plan.payload["missing_fields"] == ["breed", "color"]
 
 
+def test_missing_report_field_question_matches_english_user_language() -> None:
+    plan = parse_action_plan(json.dumps({
+        "message": "I can help create the report.",
+        "action": "REPORT_PET",
+        "payload": {"type": "LOST", "kind": "DOG"},
+    }), language="ENGLISH")
+
+    assert plan.action is None
+    assert plan.message == "What breed is your pet?"
+
+
+def test_missing_search_detail_question_matches_english_user_language() -> None:
+    plan = parse_action_plan(json.dumps({
+        "message": "I'll search for your pet.",
+        "action": "FIND_PET",
+        "payload": {"kind": "DOG"},
+    }), language="ENGLISH")
+
+    assert plan.action is None
+    assert plan.message == (
+        "What breed or color is your pet, or does it have any distinctive "
+        "markings or accessories?"
+    )
+
+
 def test_report_pet_is_emitted_only_when_all_required_slots_are_complete() -> None:
     plan = parse_action_plan(json.dumps({
         "message": "Abriré el reporte.",

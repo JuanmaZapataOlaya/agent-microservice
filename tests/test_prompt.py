@@ -1,3 +1,4 @@
+from app.agent.realtime import REALTIME_INSTRUCTIONS
 from app.rag.prompt import SYSTEM_PROMPT
 
 
@@ -7,6 +8,12 @@ def test_prompt_requires_plain_language_for_users() -> None:
     assert "Use simple, warm, everyday language in either English or Spanish" in SYSTEM_PROMPT
     assert '"búsqueda semántica"' in SYSTEM_PROMPT
     assert "instead of" in SYSTEM_PROMPT
+
+
+def test_realtime_prompt_matches_the_latest_spoken_language() -> None:
+    assert "latest spoken message" in REALTIME_INSTRUCTIONS
+    assert "respond in that same language" in REALTIME_INSTRUCTIONS
+    assert "Switch languages whenever the user does" in REALTIME_INSTRUCTIONS
 
 
 def test_prompt_transitions_failed_search_to_report_flow() -> None:
