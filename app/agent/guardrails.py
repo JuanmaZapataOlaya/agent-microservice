@@ -23,6 +23,7 @@ class GuardrailDecision:
     kind: GuardrailKind | None
     response: str | None = None
     cleaned_message: str = ""
+    language: str | None = None
 
 
 _GREETING_UNIT = (
@@ -157,7 +158,7 @@ async def classify_intent(
         language = detect_language(message)
 
     if intent == GuardrailKind.IN_SCOPE.name:
-        return GuardrailDecision(GuardrailKind.IN_SCOPE)
+        return GuardrailDecision(GuardrailKind.IN_SCOPE, language=language)
     return GuardrailDecision(
         GuardrailKind.OUT_OF_SCOPE,
         (
@@ -165,6 +166,7 @@ async def classify_intent(
             if language == "ENGLISH"
             else "Puedo ayudarte únicamente con mascotas y con las funcionalidades de FindMyPet. ¿Qué necesitas?"
         ),
+        language=language,
     )
 
 

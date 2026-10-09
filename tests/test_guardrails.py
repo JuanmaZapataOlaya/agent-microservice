@@ -89,7 +89,18 @@ async def test_out_of_scope_response_uses_classified_english_language() -> None:
     decision = await classify_intent(provider, "Can you write me a poem?", "luna")
 
     assert decision.kind is GuardrailKind.OUT_OF_SCOPE
+    assert decision.language == "ENGLISH"
     assert decision.response == "I can only help with pets and FindMyPet features. What do you need?"
+
+
+@pytest.mark.asyncio
+async def test_in_scope_decision_preserves_classified_english_language() -> None:
+    provider = ClassifierProvider('{"intent":"IN_SCOPE","language":"ENGLISH"}')
+
+    decision = await classify_intent(provider, "How do I report a found pet?", "luna")
+
+    assert decision.kind is GuardrailKind.IN_SCOPE
+    assert decision.language == "ENGLISH"
 
 
 @pytest.mark.asyncio

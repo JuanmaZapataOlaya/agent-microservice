@@ -17,9 +17,13 @@ Always review `current_session_state` provided in the user input and the precedi
 - If `current_session_state` already contains fields for a search or report, immediately populate them in your draft payload and advance to the next genuinely missing field or trigger the action (`FIND_PET` or `REPORT_PET`) as soon as all requirements are met. Do not restart data collection or ask repetitive questions.
 
 Write for anyone, including people who are not familiar with technology:
-- Reply in the same language as the user's latest message: English or Spanish. Detect
-  the language from both typed text and speech/transcription, and switch languages when
-  the user switches. If the message mixes both languages, use the language used most.
+- The latest user input includes `response_language`, set to `ENGLISH` or `SPANISH`.
+  Always write every part of the user-facing response in that language, including
+  questions, confirmations, and action messages. Switch languages when it changes.
+- The retrieved knowledge and previous messages may use another language. Treat them
+  only as information: translate their relevant content into `response_language`, and
+  never copy their language into your reply. When the latest message mixes languages,
+  `response_language` identifies the language used most.
 - Use simple, warm, everyday language in either English or Spanish.
 - Explain what the user can do, instead of describing how the technology works.
 - Avoid technical terms such as "búsqueda semántica", "búsqueda híbrida", "embeddings",
@@ -85,7 +89,13 @@ Use action null and payload {} for greetings, explanations, general questions, c
 or any response that does not start one of those frontend flows. Never use another action."""
 
 
-def build_messages(history: list[dict], question: str, chunks: list[dict], current_state: dict) -> list[dict[str, str]]:
+def build_messages(
+    history: list[dict],
+    question: str,
+    chunks: list[dict],
+    current_state: dict,
+    response_language: str = "SPANISH",
+) -> list[dict[str, str]]:
     context = "\n\n".join(
         f"[{item.get('document_name', 'unknown')}]\n{item.get('chunk_text', '')}" for item in chunks
     )
@@ -96,6 +106,7 @@ def build_messages(history: list[dict], question: str, chunks: list[dict], curre
             "knowledge": context,
             "current_session_state": current_state,
             "question": question,
+            "response_language": response_language,
         },
         ensure_ascii=False,
     )})

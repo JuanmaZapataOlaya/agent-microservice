@@ -63,6 +63,7 @@ class AgentOrchestrator:
             )
             return guardrail.response or "", None, {}
 
+        response_language = guardrail.language or detect_language(cleaned_question)
         current_state = await self.repository.get_session_state(session_id)
         embedding = await self.provider.embed(retrieval_query(cleaned_question))
         chunks = await self.repository.search_chunks(embedding, self.top_k, self.threshold)
@@ -72,8 +73,14 @@ class AgentOrchestrator:
             )
         if not chunks:
             chunks = await self.repository.search_chunks(embedding, self.top_k, 0)
-        messages = build_messages(history, cleaned_question, chunks, current_state)
-        plan = await self._parse_agent_plan(messages, question)
+        messages = build_messages(
+            history,
+            cleaned_question,
+            chunks,
+            current_state,
+            response_language,
+        )
+        plan = await self._parse_agent_plan(messages, response_language)
         
         # Persist updated state if draft is present in payload
         if isinstance(plan.payload, dict):
@@ -90,14 +97,14 @@ class AgentOrchestrator:
     async def _parse_agent_plan(
         self,
         messages: list[dict[str, str]],
-        question: str,
+        response_language: str,
     ) -> ActionPlan:
         response = await self.agent.run(
             messages,
             response_format={"type": "json_object"},
         )
         try:
-            return parse_action_plan(response.content, detect_language(question))
+            return parse_action_plan(response.content, response_language)
         except ValueError as first_error:
             logger.warning("agent_invalid_action_plan_retry")
             repair_messages = [
@@ -108,8 +115,9 @@ class AgentOrchestrator:
                         "The previous response did not follow the contract. Respond only "
                         "with a valid JSON object containing exactly "
                         "message, action, and payload. Use action null "
-                        "if details are missing; add no text outside the JSON. Write the "
-                        "user-facing message in the same language as the user's latest message."
+                        "if details are missing; add no text outside the JSON. The "
+                        f"user-facing message must be in {response_language}, regardless "
+                        "of the language used by the retrieved knowledge."
                     ),
                 },
             ]
@@ -118,14 +126,14 @@ class AgentOrchestrator:
                 response_format={"type": "json_object"},
             )
             try:
-                return parse_action_plan(retry.content, detect_language(question))
+                return parse_action_plan(retry.content, response_language)
             except ValueError:
                 logger.error("agent_invalid_action_plan_fallback", exc_info=first_error)
                 return ActionPlan(
                     message=(
                         "I couldn't process the response right now. Please try again with "
                         "your pet's details."
-                        if detect_language(question) == "ENGLISH"
+                        if response_language == "ENGLISH"
                         else "No pude procesar la respuesta en este momento. "
                         "Puedes intentar de nuevo con los datos de tu mascota."
                     ),

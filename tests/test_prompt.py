@@ -1,13 +1,19 @@
 from app.agent.realtime import REALTIME_INSTRUCTIONS
-from app.rag.prompt import SYSTEM_PROMPT
+from app.rag.prompt import SYSTEM_PROMPT, build_messages
 
 
 def test_prompt_requires_plain_language_for_users() -> None:
-    assert "same language as the user's latest message: English or Spanish" in SYSTEM_PROMPT
-    assert "the language from both typed text and speech/transcription" in SYSTEM_PROMPT
+    assert "`response_language`, set to `ENGLISH` or `SPANISH`" in SYSTEM_PROMPT
+    assert "translate their relevant content into `response_language`" in SYSTEM_PROMPT
     assert "Use simple, warm, everyday language in either English or Spanish" in SYSTEM_PROMPT
     assert '"búsqueda semántica"' in SYSTEM_PROMPT
     assert "instead of" in SYSTEM_PROMPT
+
+
+def test_text_prompt_passes_explicit_response_language() -> None:
+    messages = build_messages([], "How do I report a pet?", [], {}, "ENGLISH")
+
+    assert '"response_language": "ENGLISH"' in messages[-1]["content"]
 
 
 def test_realtime_prompt_matches_the_latest_spoken_language() -> None:
